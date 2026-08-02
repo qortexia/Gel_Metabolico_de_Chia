@@ -1,5 +1,13 @@
+const DEFAULT_CHECKOUT_URL = 'https://pay.kiwify.com.mx/REEMPLAZAR';
+
 export function buildCheckoutUrl(baseUrl: string, utms: Record<string, string>): string {
-  const url = new URL(baseUrl);
+  let url: URL;
+  try {
+    if (!baseUrl) throw new Error('empty baseUrl');
+    url = new URL(baseUrl);
+  } catch {
+    url = new URL(DEFAULT_CHECKOUT_URL);
+  }
   Object.entries(utms).forEach(([key, value]) => {
     if (value) url.searchParams.set(key, value);
   });

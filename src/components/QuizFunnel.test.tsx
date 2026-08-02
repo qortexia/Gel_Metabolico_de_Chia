@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QuizFunnel } from './QuizFunnel';
@@ -36,5 +36,28 @@ describe('QuizFunnel', () => {
     render(<QuizFunnel />);
     expect(screen.getByText(/^Tu IMC hoy es/)).toBeInTheDocument();
     expect(screen.queryByText(/^,/)).not.toBeInTheDocument();
+  });
+
+  describe('pantalla de oferta con variables de entorno vacías', () => {
+    const originalCheckoutUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL;
+    const originalPrice = process.env.NEXT_PUBLIC_OFFER_PRICE_MXN;
+
+    afterEach(() => {
+      process.env.NEXT_PUBLIC_CHECKOUT_URL = originalCheckoutUrl;
+      process.env.NEXT_PUBLIC_OFFER_PRICE_MXN = originalPrice;
+    });
+
+    it('no se cae y usa el precio/URL por defecto cuando las env vars son cadenas vacías', () => {
+      process.env.NEXT_PUBLIC_CHECKOUT_URL = '';
+      process.env.NEXT_PUBLIC_OFFER_PRICE_MXN = '';
+
+      const ofertaIndex = SCREENS.findIndex((s) => s.id === 'oferta');
+      useQuizStore.getState().goToIndex(ofertaIndex);
+
+      expect(() => render(<QuizFunnel />)).not.toThrow();
+      expect(screen.getByText('QUIERO MI PLAN')).toBeInTheDocument();
+      // No debe mostrar "$0 MXN": debe caer al precio por defecto (690).
+      expect(screen.getByText('$690')).toBeInTheDocument();
+    });
   });
 });
