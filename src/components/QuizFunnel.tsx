@@ -11,7 +11,7 @@ import {
   MICRO_REVELACION,
 } from '@/lib/content/copy';
 import { calcularImc, calcularKgABajar, calcularFechaObjetivo, categoriaImc } from '@/lib/calculations';
-import { buildCheckoutUrl, getUtmsFromLocation } from '@/lib/checkout';
+import { buildCheckoutUrl, getUtmsFromLocation, DEFAULT_CHECKOUT_URL } from '@/lib/checkout';
 import { track } from '@/lib/analytics';
 import { QuizStep } from './quiz/QuizStep';
 import { ChoiceCard } from './quiz/ChoiceCard';
@@ -240,7 +240,7 @@ export function QuizFunnel() {
     ? interpolate(ECO_DOLOR[answers.dolor] ?? '', { fecha: derived.fechaObjetivo })
     : '';
   const priceMxn = Number(process.env.NEXT_PUBLIC_OFFER_PRICE_MXN || 690);
-  const checkoutBase = process.env.NEXT_PUBLIC_CHECKOUT_URL || 'https://pay.kiwify.com.mx/REEMPLAZAR';
+  const checkoutBase = process.env.NEXT_PUBLIC_CHECKOUT_URL || DEFAULT_CHECKOUT_URL;
   const utms = typeof window !== 'undefined' ? getUtmsFromLocation(window.location.search) : {};
   const checkoutUrl = buildCheckoutUrl(checkoutBase, utms);
 

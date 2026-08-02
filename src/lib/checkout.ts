@@ -1,4 +1,4 @@
-const DEFAULT_CHECKOUT_URL = 'https://pay.kiwify.com.mx/REEMPLAZAR';
+export const DEFAULT_CHECKOUT_URL = 'https://pay.kiwify.com.mx/REEMPLAZAR';
 
 export function buildCheckoutUrl(baseUrl: string, utms: Record<string, string>): string {
   let url: URL;
