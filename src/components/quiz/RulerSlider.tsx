@@ -103,7 +103,7 @@ export function RulerSlider({
             key={u.label}
             type="button"
             onClick={() => setUnitIndex(idx)}
-            className={`rounded-full px-3 py-1 text-sm ${
+            className={`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full px-3 text-sm ${
               idx === unitIndex ? 'bg-brand text-white' : 'bg-neutral-100 text-neutral-600'
             }`}
           >
