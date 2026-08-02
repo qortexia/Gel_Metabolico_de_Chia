@@ -1,0 +1,27 @@
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { QuizStep } from './QuizStep';
+
+describe('QuizStep', () => {
+  it('renderiza título y subtítulo', () => {
+    render(
+      <QuizStep current={1} total={10} title="Título" subtitle="Sub">
+        <p>contenido</p>
+      </QuizStep>
+    );
+    expect(screen.getByText('Título')).toBeInTheDocument();
+    expect(screen.getByText('Sub')).toBeInTheDocument();
+  });
+
+  it('llama a onBack al hacer clic en la flecha', async () => {
+    const onBack = vi.fn();
+    render(
+      <QuizStep current={1} total={10} title="Título" onBack={onBack}>
+        <p>contenido</p>
+      </QuizStep>
+    );
+    await userEvent.click(screen.getByLabelText('Volver'));
+    expect(onBack).toHaveBeenCalledOnce();
+  });
+});
