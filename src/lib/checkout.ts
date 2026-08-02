@@ -6,6 +6,7 @@ export function buildCheckoutUrl(baseUrl: string, utms: Record<string, string>):
     if (!baseUrl) throw new Error('empty baseUrl');
     url = new URL(baseUrl);
   } catch {
+    console.warn('buildCheckoutUrl: invalid baseUrl, falling back to default', baseUrl);
     url = new URL(DEFAULT_CHECKOUT_URL);
   }
   Object.entries(utms).forEach(([key, value]) => {

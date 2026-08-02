@@ -4,7 +4,7 @@ export function calcularImc(pesoKg: number, estaturaCm: number): number {
 }
 
 export function calcularKgABajar(pesoKg: number, objetivoKg: number): number {
-  return Math.round((pesoKg - objetivoKg) * 10) / 10;
+  return Math.max(0, Math.round((pesoKg - objetivoKg) * 10) / 10);
 }
 
 export type CategoriaImc = 'bajo' | 'medio' | 'alto';

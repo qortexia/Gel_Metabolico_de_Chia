@@ -16,6 +16,10 @@ describe('calcularKgABajar', () => {
   it('calcula la diferencia entre peso actual y objetivo', () => {
     expect(calcularKgABajar(85, 70)).toBe(15);
   });
+
+  it('nunca regresa un valor negativo cuando el objetivo es mayor que el peso actual', () => {
+    expect(calcularKgABajar(70, 85)).toBe(0);
+  });
 });
 
 describe('categoriaImc', () => {

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { buildCheckoutUrl, getUtmsFromLocation } from './checkout';
 
 describe('buildCheckoutUrl', () => {
@@ -31,6 +31,16 @@ describe('buildCheckoutUrl', () => {
     expect(() => buildCheckoutUrl('not-a-valid-url', {})).not.toThrow();
     const url = buildCheckoutUrl('not-a-valid-url', {});
     expect(url).toBe('https://pay.kiwify.com.mx/REEMPLAZAR');
+  });
+
+  it('emite un console.warn cuando cae al fallback, para que un env var mal configurado sea detectable en logs', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    buildCheckoutUrl('not-a-valid-url', {});
+    expect(warnSpy).toHaveBeenCalledWith(
+      'buildCheckoutUrl: invalid baseUrl, falling back to default',
+      'not-a-valid-url'
+    );
+    warnSpy.mockRestore();
   });
 });
 

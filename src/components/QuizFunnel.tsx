@@ -9,6 +9,7 @@ import {
   ECO_DOLOR,
   interpolate,
   MICRO_REVELACION,
+  OFERTA,
 } from '@/lib/content/copy';
 import { calcularImc, calcularKgABajar, calcularFechaObjetivo, categoriaImc } from '@/lib/calculations';
 import { buildCheckoutUrl, getUtmsFromLocation, DEFAULT_CHECKOUT_URL } from '@/lib/checkout';
@@ -128,7 +129,11 @@ export function QuizFunnel() {
             type="button"
             disabled={!isValid}
             onClick={() => {
-              track('quiz_answer', { step: screen.id, value });
+              // Trim only what gets persisted on "Continuar" — the controlled input's
+              // live value stays untouched while the user is still typing.
+              const trimmed = value.trim();
+              setAnswer(screen.variable, trimmed);
+              track('quiz_answer', { step: screen.id, value: trimmed });
               goNext();
             }}
             className="min-h-[44px] w-full rounded-full bg-brand px-6 py-3 text-lg font-bold text-white disabled:opacity-40"
@@ -149,12 +154,22 @@ export function QuizFunnel() {
   }
 
   if (screen.kind === 'loader') {
+    // interpolate() is a no-op on strings with no {placeholder}, so applying it
+    // unconditionally is harmless for loader1 (no variables) and personalizes
+    // loader2 (imc/objetivo/nombre are all captured by this point in the funnel).
+    const messages = screen.messages.map((m) =>
+      interpolate(m, {
+        imc: String(derived.imc),
+        objetivo: String(answers.objetivo ?? ''),
+        nombre: answers.nombre ?? '',
+      })
+    );
     return (
       <AnalyzingLoader
         key={screen.id}
         title={screen.title}
         subtitle={screen.subtitle}
-        messages={screen.messages}
+        messages={messages}
         durationMs={screen.durationMs}
         onComplete={goNext}
       />
@@ -221,7 +236,7 @@ export function QuizFunnel() {
     return (
       <div key={screen.id} className="min-h-screen bg-background py-8">
         {screen.id === 'vsl1' ? (
-          <p className="mx-auto mb-4 max-w-sm px-4 text-center text-sm text-neutral-500">{MICRO_REVELACION}</p>
+          <p className="mx-auto mb-4 max-w-sm px-4 text-center text-sm text-neutral-600">{MICRO_REVELACION}</p>
         ) : null}
         <GatedVSL
           src={src}
@@ -239,7 +254,8 @@ export function QuizFunnel() {
   const eco = answers.dolor
     ? interpolate(ECO_DOLOR[answers.dolor] ?? '', { fecha: derived.fechaObjetivo })
     : '';
-  const priceMxn = Number(process.env.NEXT_PUBLIC_OFFER_PRICE_MXN || 690);
+  const rawPriceMxn = Number(process.env.NEXT_PUBLIC_OFFER_PRICE_MXN);
+  const priceMxn = Number.isFinite(rawPriceMxn) && rawPriceMxn > 0 ? rawPriceMxn : OFERTA.precioMxnDefault;
   const checkoutBase = process.env.NEXT_PUBLIC_CHECKOUT_URL || DEFAULT_CHECKOUT_URL;
   const utms = typeof window !== 'undefined' ? getUtmsFromLocation(window.location.search) : {};
   const checkoutUrl = buildCheckoutUrl(checkoutBase, utms);
