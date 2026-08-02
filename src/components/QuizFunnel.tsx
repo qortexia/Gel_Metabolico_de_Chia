@@ -89,6 +89,7 @@ export function QuizFunnel() {
           <button
             type="button"
             onClick={() => {
+              setAnswer(screen.variable, currentValue);
               track('quiz_answer', { step: screen.id, value: currentValue });
               goNext();
             }}
@@ -168,7 +169,7 @@ export function QuizFunnel() {
         key={screen.id}
         current={currentIndex + 1}
         total={total}
-        title={`${answers.nombre ?? ''}, tu IMC hoy es ${derived.imc}.`}
+        title={`Tu IMC hoy es ${derived.imc}.`}
         onBack={showBack}
         footer={
           <button type="button" onClick={goNext} className="min-h-[44px] w-full rounded-full bg-brand px-6 py-3 text-lg font-bold text-white">
@@ -188,7 +189,7 @@ export function QuizFunnel() {
         key={screen.id}
         current={currentIndex + 1}
         total={total}
-        title={`${answers.nombre ?? ''}, mira lo que revelaron tus respuestas 👀`}
+        title="Mira lo que revelaron tus respuestas 👀"
         onBack={showBack}
         footer={
           <button type="button" onClick={goNext} className="min-h-[44px] w-full rounded-full bg-brand px-6 py-3 text-lg font-bold text-white">
