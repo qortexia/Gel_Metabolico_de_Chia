@@ -131,8 +131,8 @@ export function RulerSlider({
       >
         <div className="absolute left-1/2 top-0 h-full w-0.5 -translate-x-1/2 bg-brand" />
         <div
-          className="absolute top-0 flex h-full items-end"
-          style={{ transform: `translateX(calc(50% + ${centerOffsetPx}px))` }}
+          className="absolute left-1/2 top-0 flex h-full items-end"
+          style={{ transform: `translateX(${centerOffsetPx - PX_PER_UNIT / 2}px)` }}
         >
           {ticks.map((v) => (
             <div key={v} className="flex flex-col items-center" style={{ width: PX_PER_UNIT }}>
@@ -147,7 +147,7 @@ export function RulerSlider({
           ))}
         </div>
       </div>
-      <p className="mt-2 text-center text-sm text-neutral-500">{instruction}</p>
+      <p className="mt-2 text-center text-sm text-neutral-600">{instruction}</p>
     </div>
   );
 }

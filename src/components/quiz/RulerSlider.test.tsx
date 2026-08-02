@@ -38,6 +38,27 @@ describe('RulerSlider', () => {
     expect(onChange).toHaveBeenCalledWith(86);
   });
 
+  it('ancla el contenedor de marcas con left-1/2 y lo traslada en px puros (sin % en el transform), para que el 50% no se resuelva contra el ancho de la propia tira de marcas', () => {
+    render(
+      <RulerSlider
+        min={40}
+        max={200}
+        defaultValue={85}
+        majorTickEvery={10}
+        unitKind="peso"
+        instruction="Arrastra"
+        onChange={() => {}}
+      />
+    );
+    const slider = screen.getByRole('slider');
+    const ticksContainer = slider.children[1] as HTMLElement;
+    expect(ticksContainer.className).toContain('left-1/2');
+    // centerOffsetPx = -(85 - 40) * 16 = -720; menos la mitad de PX_PER_UNIT (8) = -728.
+    // Con left-1/2 (resuelto contra el track, el padre) + este translateX en px puros,
+    // la marca de 85 queda centrada bajo el marcador verde sin importar el ancho del track.
+    expect(ticksContainer.style.transform).toBe('translateX(-728px)');
+  });
+
   it('cambia a la unidad lb al hacer clic en el toggle y convierte el valor mostrado', async () => {
     render(
       <RulerSlider
