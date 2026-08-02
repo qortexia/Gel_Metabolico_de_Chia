@@ -135,7 +135,7 @@ export function GatedVSL({ src, revealAtSeconds, ctaLabel, onCtaClick, resumeKey
               {ctaLabel}
             </button>
           ) : (
-            <p aria-live="polite" className="text-center text-sm text-neutral-500">
+            <p aria-live="polite" className="text-center text-sm text-neutral-600">
               El botón se libera en {secondsLeft}s
             </p>
           )}

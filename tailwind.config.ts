@@ -8,7 +8,7 @@ const config: Config = {
         background: '#F5F5F4',
         foreground: '#1A1A1A',
         brand: {
-          DEFAULT: '#16A34A',
+          DEFAULT: '#15803D',
           light: '#22C55E',
         },
         warning: '#F59E0B',

@@ -70,8 +70,8 @@ export function OfferCard({ priceMxn, checkoutUrl, onCheckoutClick }: OfferCardP
         </p>
       ) : null}
 
-      <p className="mt-3 text-xs text-neutral-400">{DISCLAIMERS.salud}</p>
-      <p className="mt-1 text-xs text-neutral-400">{DISCLAIMERS.privacidad}</p>
+      <p className="mt-3 text-xs text-neutral-600">{DISCLAIMERS.salud}</p>
+      <p className="mt-1 text-xs text-neutral-600">{DISCLAIMERS.privacidad}</p>
     </div>
   );
 }
