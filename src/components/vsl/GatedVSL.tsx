@@ -178,7 +178,7 @@ export function GatedVSL({
           src={src}
           controls
           playsInline
-          className="w-full max-w-sm rounded-card"
+          className="video-no-scrub w-full max-w-sm rounded-card"
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
           onSeeking={handleSeeking}

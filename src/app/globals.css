@@ -17,3 +17,22 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* GatedVSL: hides the draggable seek bar (and any skip-forward/back
+   buttons some browsers show) on the native <video> controls, so a lead
+   can't scrub ahead of the gate visually — play/pause and volume stay.
+   WebKit-only (Chrome, Safari, iOS, Android Chrome cover the vast
+   majority of funnel traffic); Firefox ignores these silently and still
+   shows the full native bar, where the existing JS anti-skip snap-back
+   (preventSkip) remains the fallback protection. */
+.video-no-scrub::-webkit-media-controls-timeline {
+  display: none !important;
+}
+.video-no-scrub::-webkit-media-controls-seek-back-button,
+.video-no-scrub::-webkit-media-controls-seek-forward-button {
+  display: none !important;
+}
+.video-no-scrub::-webkit-media-controls-current-time-display,
+.video-no-scrub::-webkit-media-controls-time-remaining-display {
+  display: none !important;
+}

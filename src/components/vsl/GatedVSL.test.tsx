@@ -13,6 +13,20 @@ describe('GatedVSL', () => {
     setAnalyticsProvider(() => {});
   });
 
+  it('el <video> lleva la clase que oculta la barra de progreso nativa (video-no-scrub)', () => {
+    render(
+      <GatedVSL
+        src="/videos/vsl1.mp4"
+        revealAtSeconds={10}
+        ctaLabel="QUIERO MI RECETA"
+        onCtaClick={() => {}}
+        resumeKey="test-vsl-no-scrub-class"
+      />
+    );
+    const video = document.querySelector('video') as HTMLVideoElement;
+    expect(video).toHaveClass('video-no-scrub');
+  });
+
   it('mantiene el CTA oculto y muestra el contador antes de revealAtSeconds', () => {
     render(
       <GatedVSL
