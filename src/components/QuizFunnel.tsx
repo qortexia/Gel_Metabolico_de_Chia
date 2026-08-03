@@ -244,6 +244,7 @@ export function QuizFunnel() {
           ctaLabel={screen.ctaLabel}
           overlayText={screen.overlayText}
           resumeKey={screen.resumeKey}
+          preventSkip={screen.preventSkip}
           onCtaClick={goNext}
         />
       </div>

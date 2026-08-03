@@ -11,12 +11,27 @@ type GatedVSLProps = {
   onCtaClick: () => void;
   resumeKey: string;
   overlayText?: string;
+  preventSkip?: boolean;
 };
 
-export function GatedVSL({ src, revealAtSeconds, ctaLabel, onCtaClick, resumeKey, overlayText }: GatedVSLProps) {
+export function GatedVSL({
+  src,
+  revealAtSeconds,
+  ctaLabel,
+  onCtaClick,
+  resumeKey,
+  overlayText,
+  preventSkip,
+}: GatedVSLProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const ctaRef = useRef<HTMLButtonElement>(null);
   const savedPositionRef = useRef<number | null>(null);
+  // High-water mark of playback: the furthest point actually watched.
+  // Gating, the countdown, and persistence all key off this instead of raw
+  // `currentTime`, so rewinding/seeking can't falsely reveal or un-reveal
+  // the CTA. It never resets to 0 on its own — see handleResume for the one
+  // legitimate case where it's fast-forwarded to match a resumed position.
+  const maxWatchedRef = useRef(0);
   const [secondsLeft, setSecondsLeft] = useState(revealAtSeconds);
   const [revealed, setRevealed] = useState(false);
   const [showResumePrompt, setShowResumePrompt] = useState(false);
@@ -46,14 +61,42 @@ export function GatedVSL({ src, revealAtSeconds, ctaLabel, onCtaClick, resumeKey
   const handleTimeUpdate = () => {
     const video = videoRef.current;
     if (!video) return;
-    saveVideoPosition(resumeKey, video.currentTime);
-    setSecondsLeft(Math.max(0, Math.ceil(revealAtSeconds - video.currentTime)));
-    if (video.currentTime >= revealAtSeconds) setRevealed(true);
+    maxWatchedRef.current = Math.max(maxWatchedRef.current, video.currentTime);
+    saveVideoPosition(resumeKey, maxWatchedRef.current);
+    setSecondsLeft(Math.max(0, Math.ceil(revealAtSeconds - maxWatchedRef.current)));
+    if (maxWatchedRef.current >= revealAtSeconds) setRevealed(true);
+  };
+
+  // Anti-skip: if the user drags the scrubber past what's actually been
+  // watched, snap back to maxWatched. The 0.5s tolerance avoids fighting
+  // normal playback, where `currentTime` can tick slightly ahead of the
+  // last-recorded maxWatched between events.
+  const handleSeeking = () => {
+    if (!preventSkip) return;
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.currentTime > maxWatchedRef.current + 0.5) {
+      video.currentTime = maxWatchedRef.current;
+    }
+  };
+
+  const handleEnded = () => {
+    // Safety net: guarantee the CTA reveals once the video has genuinely
+    // finished, even if rounding kept maxWatched a hair under revealAtSeconds.
+    setRevealed(true);
   };
 
   const handleResume = () => {
     const saved = savedPositionRef.current;
-    if (saved && videoRef.current) videoRef.current.currentTime = saved;
+    if (saved && videoRef.current) {
+      videoRef.current.currentTime = saved;
+      // Must also fast-forward maxWatched to the resumed position. Otherwise
+      // it would still read 0 right after this legitimate seek, and the
+      // preventSkip anti-skip check (currentTime > maxWatched + 0.5) would
+      // immediately treat the resume itself as an illegal forward-skip and
+      // snap the video straight back to 0.
+      maxWatchedRef.current = Math.max(maxWatchedRef.current, saved);
+    }
     setShowResumePrompt(false);
   };
 
@@ -97,6 +140,8 @@ export function GatedVSL({ src, revealAtSeconds, ctaLabel, onCtaClick, resumeKey
           playsInline
           className="w-full max-w-sm rounded-card"
           onTimeUpdate={handleTimeUpdate}
+          onSeeking={handleSeeking}
+          onEnded={handleEnded}
           onError={() => setVideoError(true)}
         >
           <track kind="captions" />

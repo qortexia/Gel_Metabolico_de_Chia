@@ -90,6 +90,7 @@ export const SCREENS: ScreenConfig[] = [
     ctaLabel: 'QUIERO MI RECETA',
     revealAtSeconds: 60,
     resumeKey: 'vsl1',
+    preventSkip: true,
   },
   {
     id: 'peso',
@@ -244,6 +245,7 @@ export const SCREENS: ScreenConfig[] = [
     ctaLabel: 'QUIERO EMPEZAR MI TRANSFORMACIÓN',
     revealAtSeconds: 90,
     resumeKey: 'vsl2',
+    preventSkip: true,
   },
   { id: 'oferta', kind: 'offer' },
 ];

@@ -103,4 +103,148 @@ describe('GatedVSL', () => {
     expect(onCtaClick).toHaveBeenCalledOnce();
     expect(trackSpy).not.toHaveBeenCalledWith('vsl_cta_click', expect.anything());
   });
+
+  it('el contador se basa en el tiempo máximo asistido y no retrocede si el usuario rebobina', () => {
+    render(
+      <GatedVSL
+        src="/videos/vsl1.mp4"
+        revealAtSeconds={20}
+        ctaLabel="QUIERO MI RECETA"
+        onCtaClick={() => {}}
+        resumeKey="test-vsl-countdown"
+      />
+    );
+    const video = document.querySelector('video') as HTMLVideoElement;
+    Object.defineProperty(video, 'currentTime', { value: 10, writable: true });
+    fireEvent.timeUpdate(video);
+    expect(screen.getByText('El botón se libera en 10s')).toBeInTheDocument();
+
+    // Rewind: the countdown must keep reflecting the max watched (10s), not
+    // jump back up to 17s just because the playhead moved backward.
+    video.currentTime = 3;
+    fireEvent.timeUpdate(video);
+    expect(screen.getByText('El botón se libera en 10s')).toBeInTheDocument();
+  });
+
+  it('rebobinar después de revelado no vuelve a ocultar el CTA (ratchet de una vía)', () => {
+    render(
+      <GatedVSL
+        src="/videos/vsl1.mp4"
+        revealAtSeconds={10}
+        ctaLabel="QUIERO MI RECETA"
+        onCtaClick={() => {}}
+        resumeKey="test-vsl-ratchet"
+      />
+    );
+    const video = document.querySelector('video') as HTMLVideoElement;
+    Object.defineProperty(video, 'currentTime', { value: 10, writable: true });
+    fireEvent.timeUpdate(video);
+    expect(screen.getByText('QUIERO MI RECETA')).toBeInTheDocument();
+
+    video.currentTime = 2;
+    fireEvent.timeUpdate(video);
+    expect(screen.getByText('QUIERO MI RECETA')).toBeInTheDocument();
+  });
+
+  it('onEnded revela el CTA aunque maxWatched no haya llegado técnicamente a revealAtSeconds', () => {
+    render(
+      <GatedVSL
+        src="/videos/vsl1.mp4"
+        revealAtSeconds={999}
+        ctaLabel="QUIERO MI RECETA"
+        onCtaClick={() => {}}
+        resumeKey="test-vsl-ended"
+      />
+    );
+    const video = document.querySelector('video') as HTMLVideoElement;
+    fireEvent.ended(video);
+    expect(screen.getByText('QUIERO MI RECETA')).toBeInTheDocument();
+  });
+
+  it('persiste el tiempo máximo asistido (maxWatched) en localStorage, no la posición cruda tras rebobinar', () => {
+    render(
+      <GatedVSL
+        src="/videos/vsl1.mp4"
+        revealAtSeconds={100}
+        ctaLabel="QUIERO MI RECETA"
+        onCtaClick={() => {}}
+        resumeKey="test-vsl-maxwatched-persist"
+      />
+    );
+    const video = document.querySelector('video') as HTMLVideoElement;
+    Object.defineProperty(video, 'currentTime', { value: 20, writable: true });
+    fireEvent.timeUpdate(video);
+    expect(getVideoPosition('test-vsl-maxwatched-persist')).toBe(20);
+
+    video.currentTime = 5;
+    fireEvent.timeUpdate(video);
+    expect(getVideoPosition('test-vsl-maxwatched-persist')).toBe(20);
+  });
+
+  it('preventSkip=true revierte un avance (seek) más allá de lo realmente asistido', () => {
+    render(
+      <GatedVSL
+        src="/videos/vsl1.mp4"
+        revealAtSeconds={100}
+        ctaLabel="QUIERO MI RECETA"
+        onCtaClick={() => {}}
+        resumeKey="test-vsl-preventskip"
+        preventSkip
+      />
+    );
+    const video = document.querySelector('video') as HTMLVideoElement;
+    Object.defineProperty(video, 'currentTime', { value: 5, writable: true });
+    fireEvent.timeUpdate(video);
+
+    video.currentTime = 20;
+    fireEvent.seeking(video);
+    expect(video.currentTime).toBe(5);
+  });
+
+  it('preventSkip=false (o ausente) permite el scrubbing libre sin regresión', () => {
+    render(
+      <GatedVSL
+        src="/videos/vsl1.mp4"
+        revealAtSeconds={100}
+        ctaLabel="QUIERO MI RECETA"
+        onCtaClick={() => {}}
+        resumeKey="test-vsl-no-preventskip"
+      />
+    );
+    const video = document.querySelector('video') as HTMLVideoElement;
+    Object.defineProperty(video, 'currentTime', { value: 5, writable: true });
+    fireEvent.timeUpdate(video);
+
+    video.currentTime = 20;
+    fireEvent.seeking(video);
+    expect(video.currentTime).toBe(20);
+  });
+
+  it('retomar con "Continuar viendo" bajo preventSkip no se revierte a 0 (interacción resume + anti-skip)', () => {
+    saveVideoPosition('test-vsl-resume-skip', 50);
+
+    render(
+      <GatedVSL
+        src="/videos/vsl1.mp4"
+        revealAtSeconds={90}
+        ctaLabel="QUIERO MI RECETA"
+        onCtaClick={() => {}}
+        resumeKey="test-vsl-resume-skip"
+        preventSkip
+      />
+    );
+
+    const video = document.querySelector('video') as HTMLVideoElement;
+    Object.defineProperty(video, 'currentTime', { value: 0, writable: true });
+
+    const resumeButton = screen.getByText('▶ Continuar viendo');
+    fireEvent.click(resumeButton);
+    expect(video.currentTime).toBe(50);
+
+    // Simulate the browser firing 'seeking' right after the programmatic
+    // resume-seek. Anti-skip must not treat this legitimate resume as an
+    // illegal forward-skip and snap the video back to 0.
+    fireEvent.seeking(video);
+    expect(video.currentTime).toBe(50);
+  });
 });

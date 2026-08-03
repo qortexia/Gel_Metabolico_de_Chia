@@ -95,6 +95,7 @@ export type VslScreenConfig = {
   ctaLabel: string;
   revealAtSeconds: number;
   resumeKey: string;
+  preventSkip?: boolean;
 };
 
 export type OfferScreenConfig = { id: string; kind: 'offer' };
