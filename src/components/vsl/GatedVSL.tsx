@@ -12,6 +12,13 @@ type GatedVSLProps = {
   // for a differently-timed cut later). A finite value still gates at that
   // exact point in maxWatched time, same as before.
   revealAtSeconds: number;
+  // If set, overrides revealAtSeconds once the video's real duration is
+  // known (onLoadedMetadata): the effective gate becomes
+  // `duration - revealSecondsBeforeEnd`, computed dynamically so it stays
+  // correct no matter how long the source video actually is. Until
+  // duration is known, falls back to revealAtSeconds (Infinity = show the
+  // generic "watch to continue" message with no countdown in the meantime).
+  revealSecondsBeforeEnd?: number;
   ctaLabel: string;
   onCtaClick: () => void;
   resumeKey: string;
@@ -29,6 +36,7 @@ function formatCountdown(seconds: number): string {
 export function GatedVSL({
   src,
   revealAtSeconds,
+  revealSecondsBeforeEnd,
   ctaLabel,
   onCtaClick,
   resumeKey,
@@ -44,6 +52,7 @@ export function GatedVSL({
   // the CTA. It never resets to 0 on its own — see handleResume for the one
   // legitimate case where it's fast-forwarded to match a resumed position.
   const maxWatchedRef = useRef(0);
+  const durationRef = useRef<number | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(revealAtSeconds);
   const [revealed, setRevealed] = useState(false);
   const [showResumePrompt, setShowResumePrompt] = useState(false);
@@ -70,13 +79,32 @@ export function GatedVSL({
     }
   }, [revealed, resumeKey]);
 
+  // Resolves the real gate threshold for this render/tick: once the video's
+  // duration is known and revealSecondsBeforeEnd is set, that takes over
+  // from the static revealAtSeconds — recomputed every call so it always
+  // reflects the latest known duration, never a stale snapshot.
+  const getEffectiveRevealAt = () =>
+    revealSecondsBeforeEnd != null && durationRef.current != null
+      ? Math.max(0, durationRef.current - revealSecondsBeforeEnd)
+      : revealAtSeconds;
+
+  const handleLoadedMetadata = () => {
+    const video = videoRef.current;
+    if (!video || !Number.isFinite(video.duration)) return;
+    durationRef.current = video.duration;
+    const effectiveRevealAt = getEffectiveRevealAt();
+    setSecondsLeft(Math.max(0, Math.ceil(effectiveRevealAt - maxWatchedRef.current)));
+    if (maxWatchedRef.current >= effectiveRevealAt) setRevealed(true);
+  };
+
   const handleTimeUpdate = () => {
     const video = videoRef.current;
     if (!video) return;
     maxWatchedRef.current = Math.max(maxWatchedRef.current, video.currentTime);
     saveVideoPosition(resumeKey, maxWatchedRef.current);
-    setSecondsLeft(Math.max(0, Math.ceil(revealAtSeconds - maxWatchedRef.current)));
-    if (maxWatchedRef.current >= revealAtSeconds) setRevealed(true);
+    const effectiveRevealAt = getEffectiveRevealAt();
+    setSecondsLeft(Math.max(0, Math.ceil(effectiveRevealAt - maxWatchedRef.current)));
+    if (maxWatchedRef.current >= effectiveRevealAt) setRevealed(true);
   };
 
   // Anti-skip: if the user drags the scrubber past what's actually been
@@ -152,6 +180,7 @@ export function GatedVSL({
           playsInline
           className="w-full max-w-sm rounded-card"
           onTimeUpdate={handleTimeUpdate}
+          onLoadedMetadata={handleLoadedMetadata}
           onSeeking={handleSeeking}
           onEnded={handleEnded}
           onError={() => setVideoError(true)}
@@ -191,7 +220,7 @@ export function GatedVSL({
             >
               {ctaLabel}
             </button>
-          ) : revealAtSeconds === Infinity ? (
+          ) : getEffectiveRevealAt() === Infinity ? (
             <p aria-live="polite" className="text-center text-sm text-neutral-600">
               Mira el video completo para continuar
             </p>

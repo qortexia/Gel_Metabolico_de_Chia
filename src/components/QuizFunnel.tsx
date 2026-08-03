@@ -241,6 +241,7 @@ export function QuizFunnel() {
         <GatedVSL
           src={src}
           revealAtSeconds={screen.revealAtSeconds}
+          revealSecondsBeforeEnd={screen.revealSecondsBeforeEnd}
           ctaLabel={screen.ctaLabel}
           overlayText={screen.overlayText}
           resumeKey={screen.resumeKey}

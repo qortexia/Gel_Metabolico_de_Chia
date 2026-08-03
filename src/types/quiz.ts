@@ -94,6 +94,7 @@ export type VslScreenConfig = {
   overlayText: string;
   ctaLabel: string;
   revealAtSeconds: number;
+  revealSecondsBeforeEnd?: number;
   resumeKey: string;
   preventSkip?: boolean;
 };

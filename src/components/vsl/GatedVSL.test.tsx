@@ -292,4 +292,63 @@ describe('GatedVSL', () => {
     // 125 - 66 = 59s restantes -> vuelve al formato "Xs"
     expect(screen.getByText('El botón se libera en 59s')).toBeInTheDocument();
   });
+
+  it('revealSecondsBeforeEnd: antes de conocer la duración, muestra el mensaje genérico', () => {
+    render(
+      <GatedVSL
+        src="/videos/vsl1.mp4"
+        revealAtSeconds={Infinity}
+        revealSecondsBeforeEnd={10}
+        ctaLabel="QUIERO MI RECETA"
+        onCtaClick={() => {}}
+        resumeKey="test-vsl-before-end-unknown-duration"
+      />
+    );
+    expect(screen.getByText('Mira el video completo para continuar')).toBeInTheDocument();
+    expect(screen.queryByText(/El botón se libera en/)).not.toBeInTheDocument();
+  });
+
+  it('revealSecondsBeforeEnd: una vez conocida la duración, libera 10s antes del final real', () => {
+    render(
+      <GatedVSL
+        src="/videos/vsl1.mp4"
+        revealAtSeconds={Infinity}
+        revealSecondsBeforeEnd={10}
+        ctaLabel="QUIERO MI RECETA"
+        onCtaClick={() => {}}
+        resumeKey="test-vsl-before-end-100"
+      />
+    );
+    const video = document.querySelector('video') as HTMLVideoElement;
+    Object.defineProperty(video, 'duration', { value: 100, writable: true, configurable: true });
+    fireEvent.loadedMetadata(video);
+    // 100 - 10 = 90s de umbral. El contador ya no es el mensaje genérico.
+    expect(screen.getByText('El botón se libera en 1:30')).toBeInTheDocument();
+
+    Object.defineProperty(video, 'currentTime', { value: 50, writable: true });
+    fireEvent.timeUpdate(video);
+    expect(screen.getByText('El botón se libera en 40s')).toBeInTheDocument();
+    expect(screen.queryByText('QUIERO MI RECETA')).not.toBeInTheDocument();
+
+    video.currentTime = 90;
+    fireEvent.timeUpdate(video);
+    expect(screen.getByText('QUIERO MI RECETA')).toBeInTheDocument();
+  });
+
+  it('revealSecondsBeforeEnd: si el video es más corto que el margen, el umbral se limita a 0 (no queda negativo)', () => {
+    render(
+      <GatedVSL
+        src="/videos/vsl1.mp4"
+        revealAtSeconds={Infinity}
+        revealSecondsBeforeEnd={10}
+        ctaLabel="QUIERO MI RECETA"
+        onCtaClick={() => {}}
+        resumeKey="test-vsl-before-end-short-video"
+      />
+    );
+    const video = document.querySelector('video') as HTMLVideoElement;
+    Object.defineProperty(video, 'duration', { value: 5, writable: true, configurable: true });
+    fireEvent.loadedMetadata(video);
+    expect(screen.getByText('QUIERO MI RECETA')).toBeInTheDocument();
+  });
 });
