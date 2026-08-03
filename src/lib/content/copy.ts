@@ -84,7 +84,7 @@ export const SCREENS: ScreenConfig[] = [
   {
     id: 'vsl1',
     kind: 'vsl',
-    src: '/videos/vsl1.mp4',
+    src: 'https://ejdwzyue8qsbigw0.public.blob.vercel-storage.com/VSL%20Dra%201.mp4',
     overlayText:
       'Quédate hasta el final: al final te muestro exactamente cómo usar el Gel Metabólico de Chía para empezar a desinflamarte desde los primeros días.',
     ctaLabel: 'QUIERO MI RECETA',
