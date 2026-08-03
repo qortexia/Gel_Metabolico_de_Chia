@@ -25,30 +25,32 @@ export function QuizStep({ current, total, title, subtitle, onBack, children, fo
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <ProgressBar current={current} total={total} />
-      <div className="flex items-center px-4 py-3">
-        {onBack ? (
-          <button
-            type="button"
-            onClick={onBack}
-            aria-label="Volver"
-            className="flex min-h-[44px] min-w-[44px] items-center justify-center text-xl"
-          >
-            ←
-          </button>
-        ) : (
-          <span className="min-h-[44px] min-w-[44px]" />
-        )}
+    <div className="flex min-h-screen flex-col items-center bg-background text-foreground">
+      <div className="flex w-full max-w-sm flex-1 flex-col">
+        <ProgressBar current={current} total={total} />
+        <div className="flex items-center px-4 py-3">
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label="Volver"
+              className="flex min-h-[44px] min-w-[44px] items-center justify-center text-xl"
+            >
+              ←
+            </button>
+          ) : (
+            <span className="min-h-[44px] min-w-[44px]" />
+          )}
+        </div>
+        <div className="flex-1 px-5 pb-6">
+          <h1 ref={titleRef} tabIndex={-1} className="text-2xl font-bold leading-tight outline-none">
+            {title}
+          </h1>
+          {subtitle ? <p className="mt-2 text-base text-neutral-600">{subtitle}</p> : null}
+          <div className="mt-6">{children}</div>
+        </div>
+        {footer ? <div className="sticky bottom-0 border-t border-neutral-200 bg-background p-4">{footer}</div> : null}
       </div>
-      <div className="flex-1 px-5 pb-6">
-        <h1 ref={titleRef} tabIndex={-1} className="text-2xl font-bold leading-tight outline-none">
-          {title}
-        </h1>
-        {subtitle ? <p className="mt-2 text-base text-neutral-600">{subtitle}</p> : null}
-        <div className="mt-6">{children}</div>
-      </div>
-      {footer ? <div className="sticky bottom-0 border-t border-neutral-200 bg-background p-4">{footer}</div> : null}
     </div>
   );
 }

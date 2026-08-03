@@ -263,16 +263,16 @@ export function QuizFunnel() {
   const checkoutUrl = buildCheckoutUrl(checkoutBase, utms);
 
   return (
-    <div key={screen.id} className="min-h-screen bg-background px-4 py-8">
-      <h1 className="text-center text-2xl font-bold">
-        ¡Analizamos tus respuestas, {answers.nombre}! Tu análisis está listo ✅
-      </h1>
-      {eco ? <p className="mx-auto mt-3 max-w-sm text-center text-neutral-600">{eco}</p> : null}
-      <p className="mx-auto mt-2 max-w-sm text-center text-sm text-neutral-500">
-        Fórmula personalizada para {answers.nombre}.
-      </p>
-      <div className="mt-6">
-        <OfferCard priceMxn={priceMxn} checkoutUrl={checkoutUrl} onCheckoutClick={() => {}} />
+    <div key={screen.id} className="flex min-h-screen flex-col items-center bg-background px-4 py-8">
+      <div className="w-full max-w-sm">
+        <h1 className="text-center text-2xl font-bold">
+          ¡Analizamos tus respuestas, {answers.nombre}! Tu análisis está listo ✅
+        </h1>
+        {eco ? <p className="mt-3 text-center text-neutral-600">{eco}</p> : null}
+        <p className="mt-2 text-center text-sm text-neutral-500">Fórmula personalizada para {answers.nombre}.</p>
+        <div className="mt-6">
+          <OfferCard priceMxn={priceMxn} checkoutUrl={checkoutUrl} onCheckoutClick={() => {}} />
+        </div>
       </div>
     </div>
   );
