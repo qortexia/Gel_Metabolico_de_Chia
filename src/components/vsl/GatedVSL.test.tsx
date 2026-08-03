@@ -247,4 +247,49 @@ describe('GatedVSL', () => {
     fireEvent.seeking(video);
     expect(video.currentTime).toBe(50);
   });
+
+  it('revealAtSeconds=Infinity: no revela por tiempo, solo cuando el video realmente termina', () => {
+    render(
+      <GatedVSL
+        src="/videos/vsl1.mp4"
+        revealAtSeconds={Infinity}
+        ctaLabel="QUIERO MI RECETA"
+        onCtaClick={() => {}}
+        resumeKey="test-vsl-infinite"
+      />
+    );
+    expect(screen.getByText('Mira el video completo para continuar')).toBeInTheDocument();
+    expect(screen.queryByText(/El botón se libera en/)).not.toBeInTheDocument();
+
+    const video = document.querySelector('video') as HTMLVideoElement;
+    Object.defineProperty(video, 'currentTime', { value: 999999, writable: true });
+    fireEvent.timeUpdate(video);
+    expect(screen.queryByText('QUIERO MI RECETA')).not.toBeInTheDocument();
+    expect(screen.getByText('Mira el video completo para continuar')).toBeInTheDocument();
+
+    fireEvent.ended(video);
+    expect(screen.getByText('QUIERO MI RECETA')).toBeInTheDocument();
+  });
+
+  it('el contador muestra formato m:ss cuando faltan 60 segundos o más', () => {
+    render(
+      <GatedVSL
+        src="/videos/vsl1.mp4"
+        revealAtSeconds={125}
+        ctaLabel="QUIERO MI RECETA"
+        onCtaClick={() => {}}
+        resumeKey="test-vsl-mmss"
+      />
+    );
+    const video = document.querySelector('video') as HTMLVideoElement;
+    Object.defineProperty(video, 'currentTime', { value: 2, writable: true });
+    fireEvent.timeUpdate(video);
+    // 125 - 2 = 123s restantes -> 2:03
+    expect(screen.getByText('El botón se libera en 2:03')).toBeInTheDocument();
+
+    video.currentTime = 66;
+    fireEvent.timeUpdate(video);
+    // 125 - 66 = 59s restantes -> vuelve al formato "Xs"
+    expect(screen.getByText('El botón se libera en 59s')).toBeInTheDocument();
+  });
 });

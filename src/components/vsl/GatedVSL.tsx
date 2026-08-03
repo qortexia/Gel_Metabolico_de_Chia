@@ -6,6 +6,11 @@ import { track } from '@/lib/analytics';
 
 type GatedVSLProps = {
   src: string;
+  // Pass Infinity to gate purely on the video actually finishing (`onEnded`)
+  // instead of a fixed timestamp — the right choice whenever the source
+  // video's duration isn't a known, stable constant (e.g. it may be swapped
+  // for a differently-timed cut later). A finite value still gates at that
+  // exact point in maxWatched time, same as before.
   revealAtSeconds: number;
   ctaLabel: string;
   onCtaClick: () => void;
@@ -13,6 +18,13 @@ type GatedVSLProps = {
   overlayText?: string;
   preventSkip?: boolean;
 };
+
+function formatCountdown(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
+}
 
 export function GatedVSL({
   src,
@@ -179,9 +191,13 @@ export function GatedVSL({
             >
               {ctaLabel}
             </button>
+          ) : revealAtSeconds === Infinity ? (
+            <p aria-live="polite" className="text-center text-sm text-neutral-600">
+              Mira el video completo para continuar
+            </p>
           ) : (
             <p aria-live="polite" className="text-center text-sm text-neutral-600">
-              El botón se libera en {secondsLeft}s
+              El botón se libera en {formatCountdown(secondsLeft)}
             </p>
           )}
         </div>

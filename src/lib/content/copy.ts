@@ -88,7 +88,9 @@ export const SCREENS: ScreenConfig[] = [
     overlayText:
       'Quédate hasta el final: al final te muestro exactamente cómo usar el Gel Metabólico de Chía para empezar a desinflamarte desde los primeros días.',
     ctaLabel: 'QUIERO MI RECETA',
-    revealAtSeconds: 60,
+    // Infinity = reveal only when the video actually finishes (onEnded),
+    // regardless of its duration — robust to swapping the source file later.
+    revealAtSeconds: Infinity,
     resumeKey: 'vsl1',
     preventSkip: true,
   },
@@ -243,7 +245,8 @@ export const SCREENS: ScreenConfig[] = [
     src: '/videos/vsl2.mp4',
     overlayText: '¡Tu análisis está listo! Mira el video para descubrir tu plan completo.',
     ctaLabel: 'QUIERO EMPEZAR MI TRANSFORMACIÓN',
-    revealAtSeconds: 90,
+    // Infinity = reveal only when the video actually finishes (onEnded).
+    revealAtSeconds: Infinity,
     resumeKey: 'vsl2',
     preventSkip: true,
   },
