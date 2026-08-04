@@ -8,7 +8,6 @@ import {
   PROYECCION_TEXTO,
   ECO_DOLOR,
   interpolate,
-  MICRO_REVELACION,
   OFERTA,
 } from '@/lib/content/copy';
 import { calcularImc, calcularKgABajar, calcularFechaObjetivo, categoriaImc } from '@/lib/calculations';
@@ -235,9 +234,6 @@ export function QuizFunnel() {
         : process.env.NEXT_PUBLIC_VSL2_URL || screen.src;
     return (
       <div key={screen.id} className="min-h-screen bg-background py-8">
-        {screen.id === 'vsl1' ? (
-          <p className="mx-auto mb-4 max-w-sm px-4 text-center text-sm text-neutral-600">{MICRO_REVELACION}</p>
-        ) : null}
         <GatedVSL
           src={src}
           revealAtSeconds={screen.revealAtSeconds}

@@ -4,9 +4,6 @@ export function interpolate(template: string, vars: Record<string, string>): str
   return template.replace(/\{(\w+)\}/g, (_, key: string) => vars[key] ?? '');
 }
 
-export const MICRO_REVELACION =
-  'La verdad que nadie te cuenta: lo que frena tu pérdida de peso casi nunca es fuerza de voluntad — es tu cuerpo pidiendo comida sin necesitarla realmente. Por eso las dietas a base de sacrificio casi siempre fallan. El Gel Metabólico de Chía actúa justo ahí.';
-
 export const SCREENS: ScreenConfig[] = [
   {
     id: 'deseo',
