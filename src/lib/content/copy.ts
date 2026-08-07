@@ -1,4 +1,4 @@
-import { ScreenConfig } from '@/types/quiz';
+import { QuizAnswers, ScreenConfig } from '@/types/quiz';
 
 export function interpolate(template: string, vars: Record<string, string>): string {
   return template.replace(/\{(\w+)\}/g, (_, key: string) => vars[key] ?? '');
@@ -25,8 +25,37 @@ export const SCREENS: ScreenConfig[] = [
     title: '¿Para quién estamos armando este plan?',
     subtitle: 'Esto cambia cómo tu cuerpo responde — por eso ajustamos todo para ti.',
     options: [
-      { value: 'mujer', label: 'Mujer' },
-      { value: 'hombre', label: 'Hombre' },
+      { value: 'mujer', label: 'Mujer', image: '/images/quiz/genero-mujer.jpg' },
+      { value: 'hombre', label: 'Hombre', image: '/images/quiz/genero-hombre.jpg' },
+    ],
+  },
+  {
+    id: 'cuerpoActual',
+    kind: 'choice',
+    variable: 'cuerpoActual',
+    title: '¿Cómo calificarías tu cuerpo hoy?',
+    options: [
+      {
+        value: 'regular',
+        label: 'Regular',
+        sublabel: 'Peso normal',
+        imageMujer: '/images/quiz/cuerpo-mujer-regular.jpg',
+        imageHombre: '/images/quiz/cuerpo-hombre-regular.png',
+      },
+      {
+        value: 'flacido',
+        label: 'Flácido',
+        sublabel: 'Poca firmeza',
+        imageMujer: '/images/quiz/cuerpo-mujer-flacido.jpg',
+        imageHombre: '/images/quiz/cuerpo-hombre-flacido.jpg',
+      },
+      {
+        value: 'sobrepeso',
+        label: 'Sobrepeso',
+        sublabel: 'Grasa visible',
+        imageMujer: '/images/quiz/cuerpo-mujer-sobrepeso.jpg',
+        imageHombre: '/images/quiz/cuerpo-hombre-sobrepeso.jpg',
+      },
     ],
   },
   {
@@ -56,25 +85,46 @@ export const SCREENS: ScreenConfig[] = [
   },
   {
     id: 'area',
-    kind: 'choice',
+    kind: 'multichoice',
     variable: 'area',
-    title: '¿Qué parte de tu cuerpo te incomoda más cuando te ves?',
+    title: '¿En qué áreas te gustaría reducir más grasa?',
+    subtitle: 'Puedes marcar más de una',
     options: [
-      { value: 'abdomen', label: 'Abdomen' },
-      { value: 'pecho', label: 'Pecho' },
-      { value: 'costados', label: 'Costados (llantitas)' },
-      { value: 'brazos', label: 'Brazos' },
+      {
+        value: 'abdomen',
+        label: 'Abdomen',
+        imageMujer: '/images/quiz/area-mujer-abdomen.webp',
+        imageHombre: '/images/quiz/area-hombre-abdomen.webp',
+      },
+      {
+        value: 'pecho',
+        label: 'Pecho',
+        imageMujer: '/images/quiz/area-mujer-pecho.webp',
+        imageHombre: '/images/quiz/area-hombre-pecho.webp',
+      },
+      {
+        value: 'costados',
+        label: 'Flancos',
+        imageMujer: '/images/quiz/area-mujer-flancos.webp',
+        imageHombre: '/images/quiz/area-hombre-flancos.webp',
+      },
+      {
+        value: 'brazos',
+        label: 'Brazos',
+        imageMujer: '/images/quiz/area-mujer-brazos.webp',
+        imageHombre: '/images/quiz/area-hombre-brazos.webp',
+      },
     ],
   },
   {
     id: 'loader1',
     kind: 'loader',
-    title: 'Listo. Ya entendimos qué ha frenado tu pérdida de peso hasta ahora…',
-    subtitle: 'Preparando tu receta personalizada…',
+    title: 'Analizando tus respuestas…',
+    subtitle: 'Comparando tu perfil con el de {generoPlural} de {edadTexto} que también querían reducir {areasTexto}.',
     messages: [
-      'Analizando tus respuestas…',
-      'Comparando tu perfil con miles de casos…',
-      'Preparando tu receta personalizada…',
+      'Mapeando tu perfil: {cuerpoActual}, enfocado en {areasTexto}',
+      'Comparando con quienes bajaron 10 kg en el protocolo',
+      'Ajustando el cálculo para quienes tienen {edadTexto}',
     ],
     durationMs: 3500,
   },
@@ -253,6 +303,49 @@ export const SCREENS: ScreenConfig[] = [
   },
   { id: 'oferta', kind: 'offer' },
 ];
+
+const GENERO_PLURAL: Record<string, string> = {
+  mujer: 'mujeres',
+  hombre: 'hombres',
+};
+
+const EDAD_TEXTO: Record<string, string> = {
+  'menos-25': 'menos de 25 años',
+  '25-34': 'entre 25 y 34 años',
+  '35-44': 'entre 35 y 44 años',
+  '45-54': 'entre 45 y 54 años',
+  '55-mas': '55 años o más',
+};
+
+function joinConY(items: string[]): string {
+  if (items.length === 0) return '';
+  if (items.length === 1) return items[0];
+  return `${items.slice(0, -1).join(', ')} y ${items[items.length - 1]}`;
+}
+
+// Deriva las variables de {placeholder} que personalizan la pantalla 'loader1'
+// (justo después de 'area') a partir de las respuestas ya dadas en ese punto
+// del funil: genero, edad, cuerpoActual y area.
+export function buildLoader1Vars(answers: QuizAnswers): Record<string, string> {
+  const areaScreen = SCREENS.find((s) => s.id === 'area');
+  const cuerpoScreen = SCREENS.find((s) => s.id === 'cuerpoActual');
+  const areaLabels =
+    areaScreen && areaScreen.kind === 'multichoice'
+      ? answers.area
+          .map((v) => areaScreen.options.find((o) => o.value === v)?.label.toLowerCase())
+          .filter((v): v is string => Boolean(v))
+      : [];
+  const cuerpoLabel =
+    cuerpoScreen && cuerpoScreen.kind === 'choice'
+      ? cuerpoScreen.options.find((o) => o.value === answers.cuerpoActual)?.label.toLowerCase() ?? ''
+      : '';
+  return {
+    generoPlural: (answers.genero && GENERO_PLURAL[answers.genero]) || 'personas',
+    edadTexto: (answers.edad && EDAD_TEXTO[answers.edad]) || '',
+    areasTexto: joinConY(areaLabels),
+    cuerpoActual: cuerpoLabel,
+  };
+}
 
 export const IMC_TEXTS: Record<'bajo' | 'medio' | 'alto', { texto: string; cta: string }> = {
   bajo: {

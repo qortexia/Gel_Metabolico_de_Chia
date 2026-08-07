@@ -1,9 +1,10 @@
 export interface QuizAnswers {
   deseo: string | null;
   genero: string | null;
+  cuerpoActual: string | null;
   edad: string | null;
   espejo: string | null;
-  area: string | null;
+  area: string[];
   peso: number | null;
   estatura: number | null;
   objetivo: number | null;
@@ -20,9 +21,10 @@ export interface QuizAnswers {
 export const INITIAL_ANSWERS: QuizAnswers = {
   deseo: null,
   genero: null,
+  cuerpoActual: null,
   edad: null,
   espejo: null,
-  area: null,
+  area: [],
   peso: null,
   estatura: null,
   objetivo: null,
@@ -39,14 +41,29 @@ export const INITIAL_ANSWERS: QuizAnswers = {
 export type ChoiceOption = {
   value: string;
   label: string;
+  sublabel?: string;
+  image?: string;
+  // Used instead of `image` when the photo should depend on the earlier
+  // 'genero' answer (e.g. body-type reference photos).
+  imageMujer?: string;
+  imageHombre?: string;
 };
 
-export type ChoiceVariable = Exclude<keyof QuizAnswers, 'peso' | 'estatura' | 'objetivo'>;
+export type ChoiceVariable = Exclude<keyof QuizAnswers, 'peso' | 'estatura' | 'objetivo' | 'area'>;
 
 export type ChoiceScreenConfig = {
   id: string;
   kind: 'choice';
   variable: ChoiceVariable;
+  title: string;
+  subtitle?: string;
+  options: ChoiceOption[];
+};
+
+export type MultiChoiceScreenConfig = {
+  id: string;
+  kind: 'multichoice';
+  variable: 'area';
   title: string;
   subtitle?: string;
   options: ChoiceOption[];
@@ -103,6 +120,7 @@ export type OfferScreenConfig = { id: string; kind: 'offer' };
 
 export type ScreenConfig =
   | ChoiceScreenConfig
+  | MultiChoiceScreenConfig
   | SliderScreenConfig
   | TextScreenConfig
   | LoaderScreenConfig

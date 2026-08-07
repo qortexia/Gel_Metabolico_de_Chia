@@ -8,6 +8,7 @@ import {
   PROYECCION_TEXTO,
   ECO_DOLOR,
   interpolate,
+  buildLoader1Vars,
   OFERTA,
 } from '@/lib/content/copy';
 import { calcularImc, calcularKgABajar, calcularFechaObjetivo, categoriaImc } from '@/lib/calculations';
@@ -59,17 +60,79 @@ export function QuizFunnel() {
       track('quiz_answer', { step: screen.id, value });
       goNext();
     };
+    // Full-photo options (genero) read better as a 2-column grid; list-style
+    // options (image + sublabel, e.g. cuerpoActual) read better stacked.
+    const isPhotoGrid = screen.options.some((opt) => opt.image && !opt.sublabel);
     return (
       <QuizStep key={screen.id} current={currentIndex + 1} total={total} title={screen.title} subtitle={screen.subtitle} onBack={showBack}>
-        <div className="space-y-3">
-          {screen.options.map((opt) => (
-            <ChoiceCard
-              key={opt.value}
-              label={opt.label}
-              selected={answers[screen.variable] === opt.value}
-              onSelect={() => handleSelect(opt.value)}
-            />
-          ))}
+        <div className={isPhotoGrid ? 'grid grid-cols-2 gap-3' : 'space-y-3'}>
+          {screen.options.map((opt) => {
+            const image =
+              opt.imageMujer || opt.imageHombre
+                ? answers.genero === 'hombre'
+                  ? opt.imageHombre
+                  : opt.imageMujer
+                : opt.image;
+            return (
+              <ChoiceCard
+                key={opt.value}
+                label={opt.label}
+                sublabel={opt.sublabel}
+                image={image}
+                selected={answers[screen.variable] === opt.value}
+                onSelect={() => handleSelect(opt.value)}
+              />
+            );
+          })}
+        </div>
+      </QuizStep>
+    );
+  }
+
+  if (screen.kind === 'multichoice') {
+    const selectedValues = answers[screen.variable];
+    const toggle = (value: string) => {
+      const next = selectedValues.includes(value)
+        ? selectedValues.filter((v) => v !== value)
+        : [...selectedValues, value];
+      setAnswer(screen.variable, next);
+    };
+    return (
+      <QuizStep
+        key={screen.id}
+        current={currentIndex + 1}
+        total={total}
+        title={screen.title}
+        subtitle={screen.subtitle}
+        onBack={showBack}
+        footer={
+          <button
+            type="button"
+            disabled={selectedValues.length === 0}
+            onClick={() => {
+              track('quiz_answer', { step: screen.id, value: selectedValues.join(',') });
+              goNext();
+            }}
+            className="min-h-[44px] w-full rounded-full bg-brand px-6 py-3 text-lg font-bold text-white disabled:opacity-40"
+          >
+            Continuar
+          </button>
+        }
+      >
+        <div className="grid grid-cols-2 gap-3">
+          {screen.options.map((opt) => {
+            const image = answers.genero === 'hombre' ? opt.imageHombre : opt.imageMujer;
+            return (
+              <ChoiceCard
+                key={opt.value}
+                label={opt.label}
+                image={image}
+                checkbox
+                selected={selectedValues.includes(opt.value)}
+                onSelect={() => toggle(opt.value)}
+              />
+            );
+          })}
         </div>
       </QuizStep>
     );
@@ -153,22 +216,21 @@ export function QuizFunnel() {
   }
 
   if (screen.kind === 'loader') {
-    // interpolate() is a no-op on strings with no {placeholder}, so applying it
-    // unconditionally is harmless for loader1 (no variables) and personalizes
-    // loader2 (imc/objetivo/nombre are all captured by this point in the funnel).
-    const messages = screen.messages.map((m) =>
-      interpolate(m, {
-        imc: String(derived.imc),
-        objetivo: String(answers.objetivo ?? ''),
-        nombre: answers.nombre ?? '',
-      })
-    );
+    // interpolate() is a no-op on strings with no {placeholder}, so applying the
+    // same variable set to both loaders is harmless: loader1 only uses the
+    // genero/edad/area/cuerpoActual vars, loader2 only uses imc/objetivo/nombre.
+    const vars = {
+      imc: String(derived.imc),
+      objetivo: String(answers.objetivo ?? ''),
+      nombre: answers.nombre ?? '',
+      ...buildLoader1Vars(answers),
+    };
     return (
       <AnalyzingLoader
         key={screen.id}
-        title={screen.title}
-        subtitle={screen.subtitle}
-        messages={messages}
+        title={interpolate(screen.title, vars)}
+        subtitle={interpolate(screen.subtitle, vars)}
+        messages={screen.messages.map((m) => interpolate(m, vars))}
         durationMs={screen.durationMs}
         onComplete={goNext}
       />

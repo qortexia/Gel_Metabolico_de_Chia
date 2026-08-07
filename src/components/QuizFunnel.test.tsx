@@ -22,6 +22,22 @@ describe('QuizFunnel', () => {
     expect(useQuizStore.getState().answers.deseo).toBe('hasta-5');
   });
 
+  it('en la pantalla "area" (multi-selección), permite marcar más de una opción y deshabilita Continuar hasta elegir al menos una', async () => {
+    const areaIndex = SCREENS.findIndex((s) => s.id === 'area');
+    useQuizStore.getState().goToIndex(areaIndex);
+    render(<QuizFunnel />);
+
+    expect(screen.getByText('Continuar')).toBeDisabled();
+
+    await userEvent.click(screen.getByText('Abdomen'));
+    await userEvent.click(screen.getByText('Brazos'));
+    expect(screen.getByText('Continuar')).not.toBeDisabled();
+
+    await userEvent.click(screen.getByText('Continuar'));
+    expect(useQuizStore.getState().answers.area).toEqual(['abdomen', 'brazos']);
+    expect(useQuizStore.getState().currentIndex).toBe(areaIndex + 1);
+  });
+
   it('guarda el valor por defecto del slider al continuar sin arrastrar', async () => {
     const pesoIndex = SCREENS.findIndex((s) => s.id === 'peso');
     useQuizStore.getState().goToIndex(pesoIndex);
