@@ -349,6 +349,43 @@ describe('GatedVSL', () => {
     expect(screen.getByText('QUIERO MI RECETA')).toBeInTheDocument();
   });
 
+  describe('botón dev-only "Liberar CTA"', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it('no aparece fuera de development', () => {
+      vi.stubEnv('NODE_ENV', 'production');
+      render(
+        <GatedVSL
+          src="/videos/vsl1.mp4"
+          revealAtSeconds={999}
+          ctaLabel="QUIERO MI RECETA"
+          onCtaClick={() => {}}
+          resumeKey="test-vsl-dev-button-prod"
+        />
+      );
+      expect(screen.queryByText('⟲ Liberar CTA')).not.toBeInTheDocument();
+    });
+
+    it('en development, revela el CTA sin necesidad de mirar el video y luego desaparece', () => {
+      vi.stubEnv('NODE_ENV', 'development');
+      render(
+        <GatedVSL
+          src="/videos/vsl1.mp4"
+          revealAtSeconds={999}
+          ctaLabel="QUIERO MI RECETA"
+          onCtaClick={() => {}}
+          resumeKey="test-vsl-dev-button-dev"
+        />
+      );
+      expect(screen.queryByText('QUIERO MI RECETA')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByText('⟲ Liberar CTA'));
+      expect(screen.getByText('QUIERO MI RECETA')).toBeInTheDocument();
+      expect(screen.queryByText('⟲ Liberar CTA')).not.toBeInTheDocument();
+    });
+  });
+
   it('revealSecondsBeforeEnd: si el video es más corto que el margen, el umbral se limita a 0 (no queda negativo)', () => {
     render(
       <GatedVSL

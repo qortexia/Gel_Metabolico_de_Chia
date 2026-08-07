@@ -104,8 +104,8 @@ describe('QuizFunnel', () => {
 
       expect(() => render(<QuizFunnel />)).not.toThrow();
       expect(screen.getByText('QUIERO MI PLAN')).toBeInTheDocument();
-      // No debe mostrar "$0 MXN": debe caer al precio por defecto (690).
-      expect(screen.getByText('$690')).toBeInTheDocument();
+      // No debe mostrar "$0 MXN": debe caer al precio por defecto (199).
+      expect(screen.getByText('$199')).toBeInTheDocument();
     });
 
     it('no muestra "$NaN" y usa el precio por defecto cuando la env var no es numérica', () => {
@@ -116,7 +116,7 @@ describe('QuizFunnel', () => {
 
       expect(() => render(<QuizFunnel />)).not.toThrow();
       expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
-      expect(screen.getByText('$690')).toBeInTheDocument();
+      expect(screen.getByText('$199')).toBeInTheDocument();
     });
   });
 });

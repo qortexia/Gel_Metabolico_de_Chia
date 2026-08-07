@@ -241,7 +241,7 @@ export const SCREENS: ScreenConfig[] = [
   {
     id: 'vsl2',
     kind: 'vsl',
-    src: '/videos/vsl2.mp4',
+    src: 'https://ejdwzyue8qsbigw0.public.blob.vercel-storage.com/Video01_1.mp4',
     overlayText: '¡Tu análisis está listo! Mira el video para descubrir tu plan completo.',
     ctaLabel: 'QUIERO EMPEZAR MI TRANSFORMACIÓN',
     // Infinity = fallback while duration is still unknown; once known,
@@ -295,9 +295,8 @@ export const ECO_DOLOR: Record<string, string> = {
 };
 
 export const OFERTA = {
-  nombreProducto: 'Gel Metabólico de Chía',
-  planLabel: 'PLAN COMPLETO',
-  precioMxnDefault: 690,
+  nombreProducto: 'Protocolo de gel metabólico de chía',
+  precioMxnDefault: 199,
   badgePago: 'Pago único • Acceso inmediato',
   entregables: [
     { titulo: 'Receta Completa', descripcion: 'El paso a paso completo para prepararlo en casa.' },

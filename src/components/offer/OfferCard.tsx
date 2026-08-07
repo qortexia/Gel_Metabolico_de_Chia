@@ -27,9 +27,7 @@ export function OfferCard({ priceMxn, checkoutUrl, onCheckoutClick }: OfferCardP
   return (
     <div className="mx-auto w-full max-w-sm rounded-card border border-neutral-200 bg-white p-5 shadow-sm">
       <p className="text-sm font-semibold text-brand">🔒 OFERTA EXCLUSIVA</p>
-      <h2 className="mt-1 text-xl font-bold">
-        {OFERTA.nombreProducto} — {OFERTA.planLabel}
-      </h2>
+      <h2 className="mt-1 text-xl font-bold">{OFERTA.nombreProducto}</h2>
       <p className="mt-3 text-3xl font-extrabold">
         ${priceMxn} <span className="text-base font-normal">MXN</span>
       </p>

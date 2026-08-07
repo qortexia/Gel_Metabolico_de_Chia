@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { DevResetButton } from '@/components/dev/DevResetButton';
 
 const QuizFunnel = dynamic(() => import('@/components/QuizFunnel').then((mod) => mod.QuizFunnel), {
   ssr: false,
@@ -16,5 +17,10 @@ const QuizFunnel = dynamic(() => import('@/components/QuizFunnel').then((mod) =>
 });
 
 export default function Home() {
-  return <QuizFunnel />;
+  return (
+    <>
+      <QuizFunnel />
+      <DevResetButton />
+    </>
+  );
 }

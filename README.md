@@ -17,7 +17,7 @@ npm run dev
 | `NEXT_PUBLIC_VSL1_URL` | URL del video VSL 1 (receta) | `/videos/vsl1.mp4` |
 | `NEXT_PUBLIC_VSL2_URL` | URL del video VSL 2 (oferta) | `/videos/vsl2.mp4` |
 | `NEXT_PUBLIC_CHECKOUT_URL` | URL de checkout de Kiwify | placeholder |
-| `NEXT_PUBLIC_OFFER_PRICE_MXN` | Precio mostrado en la oferta (MXN) | `690` |
+| `NEXT_PUBLIC_OFFER_PRICE_MXN` | Precio mostrado en la oferta (MXN) | `199` |
 
 ## Pruebas
 

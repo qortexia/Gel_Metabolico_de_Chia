@@ -159,6 +159,15 @@ export function GatedVSL({
 
   return (
     <div className="flex flex-col items-center px-4">
+      {process.env.NODE_ENV === 'development' && !revealed ? (
+        <button
+          type="button"
+          onClick={() => setRevealed(true)}
+          className="fixed bottom-4 left-4 z-50 rounded-full border border-dashed border-neutral-400 bg-white/90 px-4 py-2 text-sm font-medium text-neutral-600 shadow-md"
+        >
+          ⟲ Liberar CTA
+        </button>
+      ) : null}
       {overlayText ? <p className="mb-3 text-center text-sm font-medium text-neutral-700">{overlayText}</p> : null}
 
       {videoError ? (
