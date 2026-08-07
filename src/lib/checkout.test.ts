@@ -19,18 +19,18 @@ describe('buildCheckoutUrl', () => {
     expect(() => buildCheckoutUrl('', {})).not.toThrow();
     const url = buildCheckoutUrl('', {});
     expect(() => new URL(url)).not.toThrow();
-    expect(url).toBe('https://pay.kiwify.com.mx/REEMPLAZAR');
+    expect(url).toBe('https://pay.kiwify.com/6KqFZyK');
   });
 
   it('agrega UTMs incluso cuando baseUrl está vacío y usa el fallback', () => {
     const url = buildCheckoutUrl('', { utm_source: 'meta' });
-    expect(url).toBe('https://pay.kiwify.com.mx/REEMPLAZAR?utm_source=meta');
+    expect(url).toBe('https://pay.kiwify.com/6KqFZyK?utm_source=meta');
   });
 
   it('no lanza excepción si baseUrl no es una URL válida y regresa el fallback', () => {
     expect(() => buildCheckoutUrl('not-a-valid-url', {})).not.toThrow();
     const url = buildCheckoutUrl('not-a-valid-url', {});
-    expect(url).toBe('https://pay.kiwify.com.mx/REEMPLAZAR');
+    expect(url).toBe('https://pay.kiwify.com/6KqFZyK');
   });
 
   it('emite un console.warn cuando cae al fallback, para que un env var mal configurado sea detectable en logs', () => {

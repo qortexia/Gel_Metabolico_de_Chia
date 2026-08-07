@@ -49,4 +49,26 @@ describe('AnalyzingLoader', () => {
     });
     expect(screen.getAllByText('✓')).toHaveLength(3);
   });
+
+  it('no muestra el carrusel de fotos cuando no se pasa resultPhotos', () => {
+    const { container } = render(
+      <AnalyzingLoader title="T" subtitle="S" messages={['a']} durationMs={100} onComplete={() => {}} />
+    );
+    expect(container.querySelector('img')).not.toBeInTheDocument();
+  });
+
+  it('muestra el carrusel de fotos cuando se pasa resultPhotos', () => {
+    const { container } = render(
+      <AnalyzingLoader
+        title="T"
+        subtitle="S"
+        messages={['a']}
+        durationMs={100}
+        onComplete={() => {}}
+        resultPhotos={['/images/quiz/resultado-01.jpg', '/images/quiz/resultado-02.jpg']}
+      />
+    );
+    expect(screen.getByText('Resultados reales de nuestra comunidad')).toBeInTheDocument();
+    expect(container.querySelectorAll('img')).toHaveLength(2);
+  });
 });

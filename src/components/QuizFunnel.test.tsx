@@ -52,6 +52,15 @@ describe('QuizFunnel', () => {
     expect(useQuizStore.getState().currentIndex).toBe(proyeccionIndex + 1);
   });
 
+  it('en la pantalla "proyeccion", las fotos de antes/después dependen del género respondido', () => {
+    const proyeccionIndex = SCREENS.findIndex((s) => s.id === 'proyeccion');
+    useQuizStore.getState().setAnswer('genero', 'hombre');
+    useQuizStore.getState().goToIndex(proyeccionIndex);
+    render(<QuizFunnel />);
+    expect(screen.getByAltText('Hoy')).toHaveAttribute('src', '/images/quiz/proyeccion-hombre-antes.webp');
+    expect(screen.getByAltText('En 30 días')).toHaveAttribute('src', '/images/quiz/proyeccion-hombre-despues.webp');
+  });
+
   it('guarda el valor por defecto del slider al continuar sin arrastrar', async () => {
     const pesoIndex = SCREENS.findIndex((s) => s.id === 'peso');
     useQuizStore.getState().goToIndex(pesoIndex);

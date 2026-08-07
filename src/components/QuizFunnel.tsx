@@ -9,6 +9,8 @@ import {
   ECO_DOLOR,
   interpolate,
   buildLoader1Vars,
+  RESULT_PHOTOS,
+  PROYECCION_FOTOS,
   OFERTA,
 } from '@/lib/content/copy';
 import { calcularImc, calcularKgABajar, calcularFechaObjetivo, categoriaImc } from '@/lib/calculations';
@@ -20,6 +22,7 @@ import { RulerSlider } from './quiz/RulerSlider';
 import { AnalyzingLoader } from './quiz/AnalyzingLoader';
 import { ImcGauge } from './quiz/ImcGauge';
 import { ProjectionChart } from './quiz/ProjectionChart';
+import { BeforeAfterPhotos } from './quiz/BeforeAfterPhotos';
 import { GatedVSL } from './vsl/GatedVSL';
 import { OfferCard } from './offer/OfferCard';
 
@@ -233,6 +236,7 @@ export function QuizFunnel() {
         messages={screen.messages.map((m) => interpolate(m, vars))}
         durationMs={screen.durationMs}
         onComplete={goNext}
+        resultPhotos={screen.id === 'loader2' ? RESULT_PHOTOS : undefined}
       />
     );
   }
@@ -264,6 +268,7 @@ export function QuizFunnel() {
       track('quiz_answer', { step: screen.id, value });
       goNext();
     };
+    const fotosProyeccion = answers.genero === 'hombre' ? PROYECCION_FOTOS.hombre : PROYECCION_FOTOS.mujer;
     return (
       <QuizStep
         key={screen.id}
@@ -303,6 +308,9 @@ export function QuizFunnel() {
         <p className="text-lg font-semibold text-foreground">
           {PROYECCION_TEXTO.resultado(String(answers.peso ?? 0), String(answers.objetivo ?? 0), String(derived.kgABajar))}
         </p>
+        <div className="mt-4">
+          <BeforeAfterPhotos beforeSrc={fotosProyeccion.antes} afterSrc={fotosProyeccion.despues} />
+        </div>
         <p className="mt-3 whitespace-pre-line text-neutral-700">
           {PROYECCION_TEXTO.intro(
             String(derived.imc),

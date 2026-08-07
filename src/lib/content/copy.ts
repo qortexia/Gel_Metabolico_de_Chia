@@ -126,7 +126,7 @@ export const SCREENS: ScreenConfig[] = [
       'Comparando con quienes bajaron 10 kg en el protocolo',
       'Ajustando el cálculo para quienes tienen {edadTexto}',
     ],
-    durationMs: 3500,
+    durationMs: 7000,
   },
   {
     id: 'vsl1',
@@ -286,7 +286,7 @@ export const SCREENS: ScreenConfig[] = [
       '🎯 Calculando tu camino hasta {objetivo}kg…',
       '✅ ¡Plan de {nombre} listo!',
     ],
-    durationMs: 4000,
+    durationMs: 8000,
   },
   {
     id: 'vsl2',
@@ -303,6 +303,28 @@ export const SCREENS: ScreenConfig[] = [
   },
   { id: 'oferta', kind: 'offer' },
 ];
+
+// Before/after composite photos (each file already has both halves side by
+// side) shown as an auto-rotating carousel on loader2, as social proof while
+// the "calculation" runs.
+export const RESULT_PHOTOS = [
+  '/images/quiz/resultado-01.jpg',
+  '/images/quiz/resultado-02.jpg',
+  '/images/quiz/resultado-03.jpg',
+];
+
+// 'Hoy' / 'en 30 días' illustration pair on the projection screen, branched
+// by the earlier genero answer.
+export const PROYECCION_FOTOS: Record<'mujer' | 'hombre', { antes: string; despues: string }> = {
+  mujer: {
+    antes: '/images/quiz/proyeccion-mujer-antes.webp',
+    despues: '/images/quiz/proyeccion-mujer-despues.webp',
+  },
+  hombre: {
+    antes: '/images/quiz/proyeccion-hombre-antes.webp',
+    despues: '/images/quiz/proyeccion-hombre-despues.webp',
+  },
+};
 
 const GENERO_PLURAL: Record<string, string> = {
   mujer: 'mujeres',

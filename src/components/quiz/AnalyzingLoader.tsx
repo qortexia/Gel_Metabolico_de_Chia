@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { PhotoCarousel } from './PhotoCarousel';
 
 type AnalyzingLoaderProps = {
   title: string;
@@ -8,12 +9,20 @@ type AnalyzingLoaderProps = {
   messages: string[];
   durationMs: number;
   onComplete: () => void;
+  resultPhotos?: string[];
 };
 
 const RADIUS = 54;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-export function AnalyzingLoader({ title, subtitle, messages, durationMs, onComplete }: AnalyzingLoaderProps) {
+export function AnalyzingLoader({
+  title,
+  subtitle,
+  messages,
+  durationMs,
+  onComplete,
+  resultPhotos,
+}: AnalyzingLoaderProps) {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
@@ -41,6 +50,12 @@ export function AnalyzingLoader({ title, subtitle, messages, durationMs, onCompl
       className="flex min-h-screen flex-col items-center justify-center bg-background px-6 py-8 text-center"
       aria-live="polite"
     >
+      {resultPhotos && resultPhotos.length > 0 ? (
+        <div className="mb-8 w-full max-w-sm">
+          <p className="mb-2 text-sm font-medium text-neutral-500">Resultados reales de nuestra comunidad</p>
+          <PhotoCarousel images={resultPhotos} />
+        </div>
+      ) : null}
       <div className="relative h-32 w-32">
         <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
           <circle cx="60" cy="60" r={RADIUS} strokeWidth="10" className="stroke-neutral-200" fill="none" />
