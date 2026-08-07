@@ -260,6 +260,10 @@ export function QuizFunnel() {
   }
 
   if (screen.kind === 'projection') {
+    const handleProjectionChoice = (value: string) => {
+      track('quiz_answer', { step: screen.id, value });
+      goNext();
+    };
     return (
       <QuizStep
         key={screen.id}
@@ -268,12 +272,38 @@ export function QuizFunnel() {
         title="Mira lo que revelaron tus respuestas 👀"
         onBack={showBack}
         footer={
-          <button type="button" onClick={goNext} className="min-h-[44px] w-full rounded-full bg-brand px-6 py-3 text-lg font-bold text-white">
-            {PROYECCION_TEXTO.cta}
-          </button>
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => handleProjectionChoice('quiero')}
+              className="flex w-full items-center gap-3 rounded-card bg-brand px-4 py-3 text-left text-white transition-transform active:scale-[0.98]"
+            >
+              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-white/15 text-lg">🌱</span>
+              <span>
+                <span className="block font-bold">{PROYECCION_TEXTO.ctaPrincipal}</span>
+                <span className="block text-sm text-white/80">
+                  {PROYECCION_TEXTO.ctaPrincipalSub(String(derived.kgABajar))}
+                </span>
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleProjectionChoice('no-se')}
+              className="flex w-full items-center gap-3 rounded-card bg-neutral-100 px-4 py-3 text-left text-neutral-600 transition-transform active:scale-[0.98]"
+            >
+              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-neutral-200 text-lg">✕</span>
+              <span>
+                <span className="block font-semibold">{PROYECCION_TEXTO.ctaSecundaria}</span>
+                <span className="block text-sm text-neutral-400">{PROYECCION_TEXTO.ctaSecundariaSub}</span>
+              </span>
+            </button>
+          </div>
         }
       >
-        <p className="whitespace-pre-line text-neutral-700">
+        <p className="text-lg font-semibold text-foreground">
+          {PROYECCION_TEXTO.resultado(String(answers.peso ?? 0), String(answers.objetivo ?? 0), String(derived.kgABajar))}
+        </p>
+        <p className="mt-3 whitespace-pre-line text-neutral-700">
           {PROYECCION_TEXTO.intro(
             String(derived.imc),
             String(derived.imcObjetivo),
@@ -282,7 +312,7 @@ export function QuizFunnel() {
           )}
         </p>
         <div className="my-4 flex justify-center">
-          <ProjectionChart pesoActual={answers.peso ?? 0} objetivo={answers.objetivo ?? 0} />
+          <ProjectionChart pesoActual={answers.peso ?? 0} objetivo={answers.objetivo ?? 0} fechaObjetivo={derived.fechaObjetivo} />
         </div>
         <p className="text-neutral-700">{PROYECCION_TEXTO.contraste(derived.fechaObjetivo)}</p>
       </QuizStep>

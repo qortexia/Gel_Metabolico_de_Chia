@@ -38,6 +38,20 @@ describe('QuizFunnel', () => {
     expect(useQuizStore.getState().currentIndex).toBe(areaIndex + 1);
   });
 
+  it('en la pantalla "proyeccion", cualquiera de las dos opciones avanza a la siguiente pantalla', async () => {
+    const proyeccionIndex = SCREENS.findIndex((s) => s.id === 'proyeccion');
+    useQuizStore.getState().setAnswer('peso', 85);
+    useQuizStore.getState().setAnswer('estatura', 165);
+    useQuizStore.getState().setAnswer('objetivo', 70);
+    useQuizStore.getState().goToIndex(proyeccionIndex);
+    render(<QuizFunnel />);
+
+    expect(screen.getByText('De 85 kg para 70 kg — 15 kg menos siguiendo el plan.')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByText('No sé todavía, pero puedo intentar'));
+    expect(useQuizStore.getState().currentIndex).toBe(proyeccionIndex + 1);
+  });
+
   it('guarda el valor por defecto del slider al continuar sin arrastrar', async () => {
     const pesoIndex = SCREENS.findIndex((s) => s.id === 'peso');
     useQuizStore.getState().goToIndex(pesoIndex);

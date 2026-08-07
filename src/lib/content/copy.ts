@@ -366,11 +366,16 @@ export const IMC_TEXTS: Record<'bajo' | 'medio' | 'alto', { texto: string; cta: 
 };
 
 export const PROYECCION_TEXTO = {
+  resultado: (pesoActual: string, objetivo: string, kgABajar: string) =>
+    `De ${pesoActual} kg para ${objetivo} kg — ${kgABajar} kg menos siguiendo el plan.`,
   intro: (imc: string, imcObjetivo: string, kgABajar: string, fecha: string) =>
     `Hoy tu IMC es ${imc}. Tu meta lo llevaría a ${imcObjetivo} — el rango de quienes se sienten ligeras, seguras y cómodas en su propio cuerpo.\n\nEso son ${kgABajar}kg. Al ritmo correcto, puedes llegar ahí para ${fecha}.`,
   contraste: (fecha: string) =>
     `Pero hay dos caminos: si sigues como estás hoy, la tendencia es que la aguja se mueva para el lado equivocado. Con el plan correcto, inviertes eso — y ${fecha} puede ser el mes en que por fin te veas al espejo y sonrías.`,
-  cta: 'QUIERO LLEGAR A ESE RESULTADO',
+  ctaPrincipal: 'Sí, quiero tener ese resultado ahora mismo',
+  ctaPrincipalSub: (kgABajar: string) => `Protocolo personalizado de ${kgABajar} kg`,
+  ctaSecundaria: 'No sé todavía, pero puedo intentar',
+  ctaSecundariaSub: 'Ver el plan de todas formas',
 };
 
 export const ECO_DOLOR: Record<string, string> = {
