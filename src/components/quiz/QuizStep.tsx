@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect, useRef } from 'react';
 import { ProgressBar } from './ProgressBar';
+import { LegalFooter } from '@/components/home/LegalFooter';
 
 type QuizStepProps = {
   current: number;
@@ -50,6 +51,7 @@ export function QuizStep({ current, total, title, subtitle, onBack, children, fo
           <div className="mt-6">{children}</div>
         </div>
         {footer ? <div className="sticky bottom-0 border-t border-neutral-200 bg-background p-4">{footer}</div> : null}
+        <LegalFooter />
       </div>
     </div>
   );

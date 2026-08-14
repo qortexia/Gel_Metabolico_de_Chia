@@ -25,6 +25,7 @@ import { ProjectionChart } from './quiz/ProjectionChart';
 import { BeforeAfterPhotos } from './quiz/BeforeAfterPhotos';
 import { GatedVSL } from './vsl/GatedVSL';
 import { OfferCard } from './offer/OfferCard';
+import { LegalFooter } from './home/LegalFooter';
 
 export function QuizFunnel() {
   const { currentIndex, answers, setAnswer, goNext, goBack } = useQuizStore();
@@ -370,6 +371,7 @@ export function QuizFunnel() {
           <OfferCard priceMxn={priceMxn} checkoutUrl={checkoutUrl} onCheckoutClick={() => {}} />
         </div>
       </div>
+      <LegalFooter />
     </div>
   );
 }
