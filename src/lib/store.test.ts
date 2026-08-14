@@ -57,4 +57,21 @@ describe('useQuizStore', () => {
       expect(merged.answers.cuerpoActual).toBeNull();
     });
   });
+
+  it('starts with started=false', () => {
+    expect(useQuizStore.getState().started).toBe(false);
+  });
+
+  it('startQuiz sets started=true', () => {
+    useQuizStore.getState().startQuiz();
+    expect(useQuizStore.getState().started).toBe(true);
+  });
+
+  it('reset() also sets started back to false', () => {
+    useQuizStore.getState().startQuiz();
+    useQuizStore.getState().goNext();
+    useQuizStore.getState().reset();
+    expect(useQuizStore.getState().started).toBe(false);
+    expect(useQuizStore.getState().currentIndex).toBe(0);
+  });
 });
