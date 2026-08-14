@@ -32,8 +32,10 @@ export default function PrivacyPage() {
 
         <h2 className="mt-6 text-base font-semibold">3. Con quién compartimos tus datos</h2>
         <p className="mt-2 text-sm text-neutral-600">
-          No vendemos tus datos. Los compartimos únicamente con proveedores necesarios para
-          operar el servicio, como el procesador de pagos (Kiwify).
+          No vendemos tus datos. Los compartimos con los proveedores necesarios para operar
+          el servicio, como el procesador de pagos (Kiwify), y con plataformas de publicidad
+          y analítica (por ejemplo Meta/Facebook) para medir el rendimiento de nuestras
+          campañas, cuando corresponda.
         </p>
 
         <h2 className="mt-6 text-base font-semibold">4. Tus derechos ARCO</h2>
