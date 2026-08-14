@@ -440,4 +440,24 @@ export const DISCLAIMERS = {
     'Los resultados pueden variar de persona a persona. Este producto no sustituye una consulta médica o nutricional profesional.',
   privacidad:
     'Al continuar, aceptas nuestro tratamiento de tus datos conforme a la Ley Federal de Protección de Datos Personales en Posesión de los Particulares (LFPDPPP) y nuestra Política de Privacidad.',
+  aviso:
+    'Este producto no está diseñado para diagnosticar, tratar, curar o prevenir ninguna enfermedad.',
+};
+
+export const LANDING = {
+  titulo: 'Descubre tu protocolo personalizado',
+  subtitulo: 'Test educativo',
+  heroSrc: '/images/home/hero-app.png',
+  heroAlt: 'Mujer revisando su protocolo personalizado en la app',
+  ageGateTitulo: '¿Tienes 18 años o más?',
+  ageGateSi: 'Sí, continuar',
+  ageGateNo: 'No, salir',
+  ageGateBloqueado: 'Este contenido es exclusivamente para mayores de 18 años.',
+  footerLinks: {
+    terminos: 'Términos',
+    privacidad: 'Privacidad',
+    contacto: 'Contacto',
+  },
+  contactoEmail: 'soporte@gelmetabolicodechia.com',
+  copyright: '© 2026 Gel Metabólico de Chía. Todos los derechos reservados.',
 };

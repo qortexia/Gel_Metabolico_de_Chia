@@ -1,4 +1,6 @@
 export type AnalyticsEvent =
+  | 'landing_view'
+  | 'landing_cta_click'
   | 'quiz_start'
   | 'quiz_answer'
   | 'vsl_play'
