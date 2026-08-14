@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { DevResetButton } from '@/components/dev/DevResetButton';
 
-const QuizFunnel = dynamic(() => import('@/components/QuizFunnel').then((mod) => mod.QuizFunnel), {
+const QuizGate = dynamic(() => import('@/components/QuizGate').then((mod) => mod.QuizGate), {
   ssr: false,
   // Without this, the page renders nothing at all (ssr: false) until the
   // client JS chunk finishes loading — a blank white screen on any
@@ -19,7 +19,7 @@ const QuizFunnel = dynamic(() => import('@/components/QuizFunnel').then((mod) =>
 export default function Home() {
   return (
     <>
-      <QuizFunnel />
+      <QuizGate />
       <DevResetButton />
     </>
   );
