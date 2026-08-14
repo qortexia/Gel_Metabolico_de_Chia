@@ -40,18 +40,18 @@ export function LandingGate() {
           ) : (
             <>
               <p className="font-semibold">{LANDING.ageGateTitulo}</p>
-              <div className="mt-4 flex justify-center gap-3">
+              <div className="mt-4 space-y-2">
                 <button
                   type="button"
                   onClick={handleYes}
-                  className="min-h-[44px] min-w-[120px] rounded-full bg-brand px-6 py-3 text-sm font-bold text-white"
+                  className="min-h-[44px] w-full rounded-full bg-brand px-6 py-3 text-lg font-bold text-white"
                 >
                   {LANDING.ageGateSi}
                 </button>
                 <button
                   type="button"
                   onClick={handleNo}
-                  className="min-h-[44px] min-w-[120px] rounded-full border border-neutral-300 bg-white px-6 py-3 text-sm font-medium text-neutral-500"
+                  className="min-h-[44px] w-full rounded-full bg-neutral-100 px-6 py-3 text-lg font-semibold text-neutral-600"
                 >
                   {LANDING.ageGateNo}
                 </button>
