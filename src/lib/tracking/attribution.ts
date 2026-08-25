@@ -16,8 +16,6 @@ export const ATTRIBUTION_KEYS = [
 export type AttributionKey = (typeof ATTRIBUTION_KEYS)[number];
 export type Attribution = Partial<Record<AttributionKey, string>>;
 
-const UTM_KEYS: readonly AttributionKey[] = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
-
 const ATTRIBUTION_KEY = 'gel-chia-quiz-mx:attribution';
 const FBC_KEY = 'gel-chia-quiz-mx:fbc';
 const FBC_COOKIE_MAX_AGE_SECONDS = 90 * 24 * 60 * 60;
@@ -52,10 +50,12 @@ export function getAttribution(): Attribution {
   }
 }
 
-// Write-once per key: a return visit without UTMs (or with a different
-// campaign) must not erase the attribution of the click that brought the lead.
+// A page load that carries any attribution param is a new touch: it wins and
+// re-attributes the lead. A direct return with no params (e.g. closing the
+// tab and reopening it later) must not erase the click that brought the lead.
 export function persistAttribution(search: string): Attribution {
-  const merged: Attribution = { ...parseAttribution(search), ...getAttribution() };
+  const incoming = parseAttribution(search);
+  const merged: Attribution = Object.keys(incoming).length ? { ...getAttribution(), ...incoming } : getAttribution();
   const storage = localStorageOrNull();
   if (storage) {
     try {
@@ -121,14 +121,28 @@ export function ensureFbc(search: string, nowMs: number = Date.now()): string | 
   return fbc;
 }
 
-// Only keys Kiwify forwards to its webhook/Sales API (utm_*, s1, s2, s3, sck).
-// fbclid is deliberately excluded: fbc (s3) already carries it and Meta warns
-// against re-propagating fbclid manually.
+// Kiwify forwards utm_*/s1-s3/sck for sure; the ad IDs (campaign_id, adset_id,
+// ad_id) are sent too so the test purchase (spec §14) can confirm whether
+// Kiwify passes them through — they cost nothing if dropped along the way.
+// fbclid and placement are deliberately excluded: fbc (s3) already carries
+// fbclid and Meta warns against re-propagating it manually.
+const CHECKOUT_FORWARD_KEYS = [
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_term',
+  'utm_content',
+  'campaign_id',
+  'adset_id',
+  'ad_id',
+] as const;
+
 export function getCheckoutParams(search?: string): Record<string, string> {
   const currentSearch = search ?? (typeof window !== 'undefined' ? window.location.search : '');
-  const attribution: Attribution = { ...parseAttribution(currentSearch), ...getAttribution() };
+  const incoming = parseAttribution(currentSearch);
+  const attribution: Attribution = Object.keys(incoming).length ? { ...getAttribution(), ...incoming } : getAttribution();
   const out: Record<string, string> = {};
-  for (const key of UTM_KEYS) {
+  for (const key of CHECKOUT_FORWARD_KEYS) {
     const value = attribution[key];
     if (value) out[key] = value;
   }

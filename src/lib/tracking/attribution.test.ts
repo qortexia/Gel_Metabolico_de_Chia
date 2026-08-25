@@ -45,10 +45,16 @@ describe('attribution', () => {
     expect(getAttribution()).toEqual({ utm_source: 'ig', ad_id: '3' });
   });
 
-  it('persistAttribution no sobreescribe claves ya guardadas pero completa las que faltaban', () => {
-    persistAttribution('?utm_source=ig');
+  it('un nuevo clic con UTMs reemplaza la atribución anterior', () => {
+    persistAttribution('?utm_source=ig&ad_id=3');
     persistAttribution('?utm_source=fb&ad_id=9');
-    expect(getAttribution()).toEqual({ utm_source: 'ig', ad_id: '9' });
+    expect(getAttribution()).toEqual({ utm_source: 'fb', ad_id: '9' });
+  });
+
+  it('un nuevo clic conserva claves antiguas que el nuevo no trae', () => {
+    persistAttribution('?utm_source=ig&ad_id=3');
+    persistAttribution('?utm_source=fb');
+    expect(getAttribution()).toEqual({ utm_source: 'fb', ad_id: '3' });
   });
 
   it('readCookie lee una cookie por nombre y decodifica el valor', () => {
@@ -85,19 +91,24 @@ describe('attribution', () => {
     expect(ensureFbc('?utm_source=ig', 1700000000000)).toBeNull();
   });
 
-  it('getCheckoutParams incluye utm_*, s1=session_id, s2=anon_id, s3=fbc y sck=fbp', () => {
+  it('getCheckoutParams incluye utm_*, los ids dinámicos del anuncio, s1=session_id, s2=anon_id, s3=fbc y sck=fbp; nunca fbclid ni placement', () => {
     document.cookie = '_fbp=fb.1.1700000000000.42; path=/';
     ensureFbc('?fbclid=AbC', 1700000000000);
-    persistAttribution('?utm_source=ig&utm_campaign=mx01&ad_id=3');
+    persistAttribution('?utm_source=ig&utm_campaign=mx01&campaign_id=10&adset_id=20&ad_id=3&placement=feed');
     const params = getCheckoutParams('');
     expect(params).toEqual({
       utm_source: 'ig',
       utm_campaign: 'mx01',
+      campaign_id: '10',
+      adset_id: '20',
+      ad_id: '3',
       s1: getSessionId(),
       s2: getAnonId(),
       s3: 'fb.1.1700000000000.AbC',
       sck: 'fb.1.1700000000000.42',
     });
+    expect(params).not.toHaveProperty('fbclid');
+    expect(params).not.toHaveProperty('placement');
   });
 
   it('getCheckoutParams también toma los UTMs de la URL actual si aún no fueron persistidos', () => {
