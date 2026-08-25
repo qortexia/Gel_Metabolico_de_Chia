@@ -70,7 +70,14 @@ export function persistAttribution(search: string): Attribution {
 export function readCookie(name: string, cookieString?: string): string | null {
   const source = cookieString ?? (typeof document !== 'undefined' ? document.cookie : '');
   const entry = source.split('; ').find((c) => c.startsWith(`${name}=`));
-  return entry ? decodeURIComponent(entry.slice(name.length + 1)) : null;
+  if (!entry) return null;
+  const value = entry.slice(name.length + 1);
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    // Malformed percent-encoding: return raw value instead of throwing
+    return value;
+  }
 }
 
 export function getFbp(): string | null {

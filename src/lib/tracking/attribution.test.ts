@@ -56,6 +56,10 @@ describe('attribution', () => {
     expect(readCookie('_fbc', '_fbp=x')).toBeNull();
   });
 
+  it('readCookie no lanza con un valor mal codificado y devuelve el valor crudo', () => {
+    expect(readCookie('_fbc', '_fbc=fb.1.1.abc%E0%A4%A')).toBe('fb.1.1.abc%E0%A4%A');
+  });
+
   it('getFbp lee la cookie _fbp del documento', () => {
     document.cookie = '_fbp=fb.1.1700000000000.42; path=/';
     expect(getFbp()).toBe('fb.1.1700000000000.42');
