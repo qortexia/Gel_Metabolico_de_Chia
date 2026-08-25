@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { GatedVSL } from './GatedVSL';
 import { saveVideoPosition, getVideoPosition } from '@/lib/videoPersistence';
 import { setAnalyticsProvider } from '@/lib/analytics';
@@ -401,5 +402,47 @@ describe('GatedVSL', () => {
     Object.defineProperty(video, 'duration', { value: 5, writable: true, configurable: true });
     fireEvent.loadedMetadata(video);
     expect(screen.getByText('QUIERO MI RECETA')).toBeInTheDocument();
+  });
+
+  describe('eventos de video', () => {
+    function renderVsl() {
+      return render(
+        <GatedVSL src="/v.mp4" revealAtSeconds={10} ctaLabel="CTA" onCtaClick={() => {}} resumeKey="vsl1" />
+      );
+    }
+
+    it('emite vsl_view al montar (sin play) y vsl_play solo en el primer play real', () => {
+      const spy = vi.fn();
+      setAnalyticsProvider(spy);
+      renderVsl();
+      expect(spy).toHaveBeenCalledWith('vsl_view', { resumeKey: 'vsl1' });
+      expect(spy).not.toHaveBeenCalledWith('vsl_play', expect.anything());
+
+      const video = document.querySelector('video') as HTMLVideoElement;
+      fireEvent.play(video);
+      fireEvent.pause(video);
+      fireEvent.play(video);
+      expect(spy.mock.calls.filter((c) => c[0] === 'vsl_play')).toHaveLength(1);
+      expect(spy).toHaveBeenCalledWith('vsl_play', { resumeKey: 'vsl1' });
+    });
+
+    it('emite vsl_error con el código del error al fallar la carga', () => {
+      const spy = vi.fn();
+      setAnalyticsProvider(spy);
+      renderVsl();
+      fireEvent.error(document.querySelector('video') as HTMLVideoElement);
+      expect(spy).toHaveBeenCalledWith('vsl_error', { resumeKey: 'vsl1', code: null });
+      expect(screen.getByText('Continuar sin video')).toBeInTheDocument();
+    });
+
+    it('"Continuar sin video" emite vsl_continue_without_video y nunca vsl_cta_click', async () => {
+      const spy = vi.fn();
+      setAnalyticsProvider(spy);
+      renderVsl();
+      fireEvent.error(document.querySelector('video') as HTMLVideoElement);
+      await userEvent.click(screen.getByText('Continuar sin video'));
+      expect(spy).toHaveBeenCalledWith('vsl_continue_without_video', { resumeKey: 'vsl1' });
+      expect(spy).not.toHaveBeenCalledWith('vsl_cta_click', expect.anything());
+    });
   });
 });
