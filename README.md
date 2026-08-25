@@ -23,6 +23,11 @@ npm run dev
 | `META_TEST_EVENT_CODE` | Código de "Test Events" del Events Manager; definir solo durante QA | vacío |
 | `META_GRAPH_VERSION` | Versión del Graph API | `v23.0` |
 
+`NEXT_PUBLIC_META_PIXEL_ID` se inlinea en tiempo de build: hay que configurarla en Vercel (Production
+y Preview) ANTES del deploy que deba llevarla; cambiarla requiere un nuevo deploy. Si falta
+`NEXT_PUBLIC_META_PIXEL_ID` o `META_CAPI_ACCESS_TOKEN`, `/api/e/capi` responde 503 y el funil sigue
+funcionando solo con el Pixel del navegador (o sin tracking alguno si falta el pixel id).
+
 ## Pruebas
 
 ```bash
