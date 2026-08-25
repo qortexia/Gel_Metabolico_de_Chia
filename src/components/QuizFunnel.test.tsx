@@ -132,8 +132,10 @@ describe('QuizFunnel', () => {
     const originalPrice = process.env.NEXT_PUBLIC_OFFER_PRICE_MXN;
 
     afterEach(() => {
-      process.env.NEXT_PUBLIC_CHECKOUT_URL = originalCheckoutUrl;
-      process.env.NEXT_PUBLIC_OFFER_PRICE_MXN = originalPrice;
+      if (originalCheckoutUrl === undefined) delete process.env.NEXT_PUBLIC_CHECKOUT_URL;
+      else process.env.NEXT_PUBLIC_CHECKOUT_URL = originalCheckoutUrl;
+      if (originalPrice === undefined) delete process.env.NEXT_PUBLIC_OFFER_PRICE_MXN;
+      else process.env.NEXT_PUBLIC_OFFER_PRICE_MXN = originalPrice;
     });
 
     it('no se cae y usa el precio/URL por defecto cuando las env vars son cadenas vacías', () => {
