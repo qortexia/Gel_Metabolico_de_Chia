@@ -1,7 +1,8 @@
 import type { AnalyticsEvent, AnalyticsPayload, AnalyticsProvider } from '@/lib/analytics';
 import { getAnonId, getSessionId, eventIdFor } from './ids';
-import { EVENT_MAP, EVENT_SCOPE, stepRefFor, type MetaEventName } from './eventMap';
+import { EVENT_MAP, EVENT_SCOPE, stepRefFor, pickMetadata, type MetaEventName } from './eventMap';
 import { getFbc, getFbp } from './attribution';
+import { getConsent } from './consent';
 import { fbqTrack } from './metaPixel';
 
 export interface CapiClientPayload {
@@ -14,6 +15,11 @@ export interface CapiClientPayload {
   fbc: string | null;
   fbp: string | null;
   custom_data?: Record<string, string | number>;
+  // Fase 1 contract fields: the hub persists these to Supabase but they never
+  // reach the Meta Graph payload (the route ignores them by construction).
+  internal_name: AnalyticsEvent;
+  metadata: AnalyticsPayload;
+  consent_version: string | null;
 }
 
 export type CapiTransport = (payload: CapiClientPayload) => Promise<void>;
@@ -104,6 +110,9 @@ export function createTrackingProvider(
       session_id: sessionId,
       fbc: getFbc(),
       fbp: getFbp(),
+      internal_name: event,
+      metadata: pickMetadata(event, payload),
+      consent_version: getConsent()?.policy_version ?? null,
     };
     if (customData) body.custom_data = customData;
     try {

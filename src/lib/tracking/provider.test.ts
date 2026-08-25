@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createTrackingProvider, buildCustomData, type CapiTransport } from './provider';
 import { getAnonId, getSessionId, eventIdFor } from './ids';
+import { saveConsent } from './consent';
 
 describe('createTrackingProvider', () => {
   const fixedNow = () => new Date('2026-08-24T12:00:00Z');
@@ -34,7 +35,23 @@ describe('createTrackingProvider', () => {
       fbc: null,
       fbp: null,
       custom_data: { value: 199, currency: 'MXN' },
+      internal_name: 'checkout_click',
+      metadata: { priceMxn: 199 },
+      consent_version: null,
     });
+  });
+
+  it('incluye consent_version cuando ya se guardó el consentimiento', () => {
+    saveConsent(fixedNow());
+    const transport = vi.fn().mockResolvedValue(undefined);
+    createTrackingProvider({ transport, now: fixedNow })('checkout_click', { priceMxn: 199 });
+    expect(transport).toHaveBeenCalledWith(expect.objectContaining({ consent_version: '2026-08-24' }));
+  });
+
+  it('el metadata del payload de transporte nunca lleva claves fuera de la allowlist (nada de peso/salud)', () => {
+    const transport = vi.fn().mockResolvedValue(undefined);
+    createTrackingProvider({ transport, now: fixedNow })('checkout_click', { priceMxn: 199, peso: 85 });
+    expect(transport).toHaveBeenCalledWith(expect.objectContaining({ metadata: { priceMxn: 199 } }));
   });
 
   it('quiz_complete → Lead con event_id por anon_id: misma persona en otra sesión produce el MISMO id', () => {
