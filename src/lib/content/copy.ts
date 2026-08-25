@@ -453,6 +453,10 @@ export const LANDING = {
   ageGateSi: 'Sí, continuar',
   ageGateNo: 'No, salir',
   ageGateBloqueado: 'Este contenido es exclusivamente para mayores de 18 años.',
+  consentTexto:
+    'Acepto el tratamiento de mis datos personales, incluidos datos de salud (peso, estatura y objetivo), para generar mi plan y medir nuestras campañas, conforme al',
+  consentLink: 'Aviso de Privacidad',
+  consentAria: 'Acepto el tratamiento de mis datos personales, incluidos datos de salud',
   footerLinks: {
     terminos: 'Términos',
     privacidad: 'Privacidad',
