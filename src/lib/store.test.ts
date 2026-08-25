@@ -74,4 +74,25 @@ describe('useQuizStore', () => {
     expect(useQuizStore.getState().started).toBe(false);
     expect(useQuizStore.getState().currentIndex).toBe(0);
   });
+
+  describe('migración de esquema (gate de consentimiento expreso)', () => {
+    it('un guardado de la versión 0 (previa al gate) se re-hidrata con started=false pero conserva el progreso', async () => {
+      window.localStorage.setItem(
+        'gel-chia-quiz-mx',
+        JSON.stringify({ state: { currentIndex: 5, started: true, answers: {} }, version: 0 })
+      );
+      await useQuizStore.persist.rehydrate();
+      expect(useQuizStore.getState().started).toBe(false);
+      expect(useQuizStore.getState().currentIndex).toBe(5);
+    });
+
+    it('un guardado ya en version 1 con started=true se re-hidrata sin pasar de nuevo por el gate', async () => {
+      window.localStorage.setItem(
+        'gel-chia-quiz-mx',
+        JSON.stringify({ state: { currentIndex: 2, started: true, answers: {} }, version: 1 })
+      );
+      await useQuizStore.persist.rehydrate();
+      expect(useQuizStore.getState().started).toBe(true);
+    });
+  });
 });
