@@ -77,7 +77,10 @@ export interface MetaConfig {
   testEventCode?: string;
   graphVersion?: string;
   fetchImpl?: typeof fetch;
+  timeoutMs?: number;
 }
+
+const DEFAULT_TIMEOUT_MS = 5000;
 
 export interface MetaSendResult {
   events_received: number;
@@ -87,14 +90,15 @@ export interface MetaSendResult {
 export async function sendEventsToMeta(events: GraphEvent[], cfg: MetaConfig): Promise<MetaSendResult> {
   const doFetch = cfg.fetchImpl ?? fetch;
   const version = cfg.graphVersion ?? DEFAULT_GRAPH_VERSION;
-  const url = `https://graph.facebook.com/${version}/${cfg.pixelId}/events?access_token=${encodeURIComponent(cfg.accessToken)}`;
-  const body: Record<string, unknown> = { data: events };
+  const url = `https://graph.facebook.com/${version}/${cfg.pixelId}/events`;
+  const body: Record<string, unknown> = { data: events, access_token: cfg.accessToken };
   if (cfg.testEventCode) body.test_event_code = cfg.testEventCode;
 
   const res = await doFetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(cfg.timeoutMs ?? DEFAULT_TIMEOUT_MS),
   });
   const json = (await res.json().catch(() => ({}))) as {
     events_received?: number;

@@ -86,7 +86,7 @@ describe('sendEventsToMeta', () => {
     NOW
   );
 
-  it('hace POST al endpoint /events del pixel con el token en la query y test_event_code en el body', async () => {
+  it('hace POST al endpoint /events del pixel con el token en el body (no en la query) y test_event_code también en el body', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ events_received: 1, fbtrace_id: 'trace-1' }), { status: 200 })
     );
@@ -98,17 +98,19 @@ describe('sendEventsToMeta', () => {
     });
     expect(result).toEqual({ events_received: 1, fbtrace_id: 'trace-1' });
     const [url, init] = fetchImpl.mock.calls[0];
-    expect(url).toBe('https://graph.facebook.com/v23.0/123/events?access_token=tok');
+    expect(url).toBe('https://graph.facebook.com/v23.0/123/events');
     expect(init.method).toBe('POST');
-    expect(JSON.parse(init.body)).toEqual({ data: [event], test_event_code: 'TEST1' });
+    expect(JSON.parse(init.body)).toEqual({ data: [event], access_token: 'tok', test_event_code: 'TEST1' });
+    // M2: an AbortSignal caps the Graph call so it can't hang the route forever
+    expect(init.signal).toBeInstanceOf(AbortSignal);
   });
 
   it('sin test_event_code no incluye la clave en el body y respeta META_GRAPH_VERSION', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response(JSON.stringify({ events_received: 1 }), { status: 200 }));
     await sendEventsToMeta([event], { pixelId: '123', accessToken: 'tok', graphVersion: 'v24.0', fetchImpl: fetchImpl as unknown as typeof fetch });
     const [url, init] = fetchImpl.mock.calls[0];
-    expect(url).toContain('/v24.0/');
-    expect(JSON.parse(init.body)).toEqual({ data: [event] });
+    expect(url).toBe('https://graph.facebook.com/v24.0/123/events');
+    expect(JSON.parse(init.body)).toEqual({ data: [event], access_token: 'tok' });
   });
 
   it('lanza con el mensaje de error de Meta cuando la respuesta no es 2xx', async () => {

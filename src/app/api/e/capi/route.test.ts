@@ -69,8 +69,9 @@ describe('POST /api/e/capi', () => {
     expect(await res.json()).toEqual({ events_received: 1, fbtrace_id: 't1' });
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe('https://graph.facebook.com/v23.0/123/events?access_token=tok');
+    expect(url).toBe('https://graph.facebook.com/v23.0/123/events');
     const sent = JSON.parse(init.body);
+    expect(sent.access_token).toBe('tok');
     expect(sent.data[0]).toMatchObject({
       event_name: 'Lead',
       event_id: VALID_BODY.event_id,
