@@ -51,17 +51,20 @@ export default function PrivacyPage() {
           <br />
           <strong>Meta (Facebook/Instagram)</strong>: le enviamos únicamente identificadores técnicos
           y eventos de navegación genéricos (por ejemplo, &quot;completó el test&quot;, &quot;fue al
-          pago&quot;). Si nos das tu correo o teléfono, los enviamos cifrados de forma irreversible
-          (hash SHA-256). <strong>Nunca</strong> enviamos a Meta tus respuestas de salud (peso,
+          pago&quot;). Si nos das tu correo o teléfono (por ejemplo, al realizar una compra), podremos
+          enviarlos a Meta únicamente cifrados de forma irreversible (hash SHA-256), nunca en claro.{' '}
+          <strong>Nunca</strong> enviamos a Meta tus respuestas de salud (peso,
           estatura, objetivo ni hábitos).
           <br />
-          <strong>Supabase</strong> (proveedor de infraestructura) aloja nuestra base de datos.
+          <strong>Proveedores de infraestructura en la nube</strong> (por ejemplo, Supabase), que
+          podrán alojar nuestra base de datos cuando almacenemos datos de tu sesión.
         </p>
 
         <h2 className={SECTION}>4. Conservación</h2>
         <p className={TEXT}>
-          Los identificadores técnicos (IP, navegador) se eliminan a los 90 días. Los datos de tu
-          test se conservan mientras uses el servicio o hasta que solicites su eliminación.
+          Los identificadores técnicos (dirección IP, navegador, cookies e identificadores de sesión)
+          se eliminan a los 90 días. Los datos de tu test se conservan mientras uses el servicio o
+          hasta que solicites su eliminación.
         </p>
 
         <h2 className={SECTION}>5. Tus derechos ARCO y revocación del consentimiento</h2>
