@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { MetaPixelScript } from '@/components/tracking/MetaPixelScript';
+import { TrackingProvider } from '@/components/tracking/TrackingProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -10,9 +12,14 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const pixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID;
   return (
     <html lang="es-MX">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        {pixelId ? <MetaPixelScript pixelId={pixelId} /> : null}
+        <TrackingProvider />
+        {children}
+      </body>
     </html>
   );
 }

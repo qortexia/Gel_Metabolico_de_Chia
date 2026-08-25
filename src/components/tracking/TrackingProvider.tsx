@@ -1,0 +1,17 @@
+'use client';
+
+import { useEffect } from 'react';
+import { setAnalyticsProvider } from '@/lib/analytics';
+import { createTrackingProvider, type CapiTransport } from '@/lib/tracking/provider';
+import { persistAttribution, ensureFbc } from '@/lib/tracking/attribution';
+
+type TrackingProviderProps = { transport?: CapiTransport };
+
+export function TrackingProvider({ transport }: TrackingProviderProps) {
+  useEffect(() => {
+    persistAttribution(window.location.search);
+    ensureFbc(window.location.search);
+    setAnalyticsProvider(createTrackingProvider(transport ? { transport } : {}));
+  }, [transport]);
+  return null;
+}
