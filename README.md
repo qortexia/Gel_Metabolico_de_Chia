@@ -18,6 +18,10 @@ npm run dev
 | `NEXT_PUBLIC_VSL2_URL` | URL del video VSL 2 (oferta) | `/videos/vsl2.mp4` |
 | `NEXT_PUBLIC_CHECKOUT_URL` | URL de checkout de Kiwify | `https://pay.kiwify.com/6KqFZyK` |
 | `NEXT_PUBLIC_OFFER_PRICE_MXN` | Precio mostrado en la oferta (MXN) | `199` |
+| `NEXT_PUBLIC_META_PIXEL_ID` | ID del Pixel/dataset de Meta (público) | — (sin él, no carga el Pixel ni el CAPI) |
+| `META_CAPI_ACCESS_TOKEN` | Token de System User para la Conversions API (solo servidor) | — |
+| `META_TEST_EVENT_CODE` | Código de "Test Events" del Events Manager; definir solo durante QA | vacío |
+| `META_GRAPH_VERSION` | Versión del Graph API | `v23.0` |
 
 ## Pruebas
 
@@ -28,5 +32,6 @@ npm test
 ## Deploy
 
 Conectar este repositorio a un proyecto de Vercel y configurar las variables de entorno de la
-tabla anterior en el dashboard del proyecto (Production + Preview). No requiere base de datos
-ni backend.
+tabla anterior en el dashboard del proyecto (Production + Preview). No requiere base de datos. El
+route handler `/api/e/capi` reenvía los eventos del Pixel a la Conversions API de Meta (mismo
+`event_id`, deduplicado).
