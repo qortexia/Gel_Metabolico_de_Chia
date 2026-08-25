@@ -49,6 +49,7 @@ Faça na ordem. Itens 1-2 **antes** de eu ligar o CAPI em produção.
 
 - [ ] **1. Events Manager → Data Sources → seu pixel → Configurações.** Existe aviso de restrição "Health and Wellness" / "Data Sharing Restrictions"? Anote o nível (nenhum / leve / moderado / severo). Se houver qualquer restrição: abrir a revisão/apelação **hoje** (é um formulário) e me avisar — muda o que a gente manda pra Meta (spec §11.4).
 - [ ] **2. Events Manager → mesma tela → Aggregated Event Measurement.** Ainda aparece configuração manual de 8 eventos priorizados pro domínio? Anote sim/não.
+- [ ] **2b. Events Manager → Data Sources → seu pixel → Configurações → "Rastrear eventos automaticamente sem código" (Track events automatically without code): DESLIGAR.** Com isso ligado, o Pixel manda sozinho o texto dos botões e campos de formulário pra Meta — e o botão da projeção contém "Protocolo personalizado de N kg" (dado de saúde derivado). O código já desliga `autoConfig` no snippet; o painel precisa bater.
 - [ ] **3. Events Manager → Partner Integrations.** Existe integração Kiwify (ou outra) ligada neste pixel? Anote.
 - [ ] **4. Painel Kiwify → produto → Pixels/Integrações.** Pixel Meta configurado? Se sim, quais eventos (Checkout / Compra aprovada / por método de pagamento)? **Decisão A:** deixar ligado **só** "Compra aprovada" (Purchase) com o mesmo Pixel ID; **desligar** qualquer evento de Checkout/InitiateCheckout. Se não existir, criar com só Purchase.
 - [ ] **5. Ads Manager → cada anúncio ativo → Rastreamento → Parâmetros de URL.** Colar:

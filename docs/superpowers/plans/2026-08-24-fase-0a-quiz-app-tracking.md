@@ -2432,6 +2432,7 @@ Refazer o fluxo do Step 2 no preview. Critérios de aceite:
 - `Lead` aparece **uma vez**, agrupando browser + servidor; o do servidor marcado como "Deduplicated" (ou equivalente). Duas linhas independentes = `event_id`/`event_name` divergindo → parar e investigar.
 - `InitiateCheckout` idem, com `value` e `currency: MXN` visíveis nos parâmetros.
 - Nenhum evento chamado `imc_view`, `projection_view`, `quiz_answer` etc. aparece.
+- **Nenhum evento `SubscribedButtonClick` aparece e nenhum parâmetro `buttonText` / campo de formulário aparece nos parâmetros de `Lead`/`InitiateCheckout`** (confirma que `autoConfig` está desligado no snippet E no painel — Fase 0b item 2b).
 - Recarregar a página da oferta e clicar de novo → **não** gera novo `InitiateCheckout`.
 - Nos logs da Vercel (`/api/e/capi`): nenhuma linha `capi_send_failed`.
 
@@ -2450,6 +2451,17 @@ git push
 ```
 
 ---
+
+## Emendas pós-review final (2026-08-25)
+
+O review da branch inteira encontrou pontos em que **este plano** divergia da spec ou deixava um buraco; o código foi corrigido numa onda única e o plano NÃO foi reescrito — leia estas emendas como sobrepondo o texto das tasks:
+
+- **Task 9 / `MetaPixelScript`:** o snippet chama `fbq('set', 'autoConfig', false, pixelId)` antes do `init`. Sem isso o Pixel auto-coleta texto de botões (ex.: "Protocolo personalizado de 23 kg") e campos de formulário, por fora do `EVENT_MAP` — violação da spec §11.
+- **Task 8 / `/api/e/capi`:** ganhou checagem de `Origin`/`Referer` contra o `host` (403 se diferente; ausência de ambos é permitida) e supressão de bots por user-agent (200 `{skipped:'bot'}` sem chamar a Meta) — spec §6 passos 2 e 5. `pickCustomData` só aceita `value` finito **com** `currency`. Token vai no body JSON, não na query. `fetch` com `AbortSignal.timeout(5000)`.
+- **Task 3 / `getCheckoutParams`:** encaminha também `campaign_id/adset_id/ad_id` (spec §7.1); continua excluindo `fbclid` e `placement`.
+- **Task 3 / `persistAttribution`:** "write-once" é **por toque**, não por pessoa: um pageload com qualquer parâmetro de atribuição substitui o armazenado; um retorno direto (sem parâmetros) mantém o original (spec §4.2).
+- **Task 6 / `CapiClientPayload`:** carrega `internal_name`, `metadata` (via `pickMetadata`) e `consent_version` — o contrato da spec §5.1 — para a migração pro hub na Fase 1 trocar só o destino do POST. O servidor ignora esses campos nesta fase.
+- **`store.ts`:** `persist` com `version: 1` + `migrate` que força `started: false` em estado v0 — visitantes que já tinham começado o quiz antes do deploy passam pelo consentimento uma vez (spec §11.1).
 
 ## Self-review (feito ao escrever o plano)
 
