@@ -103,9 +103,81 @@ describe('POST /api/e/capi', () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).data[0].custom_data).toEqual({ value: 199, currency: 'MXN' });
   });
 
+  it('descarta custom_data si value no es finito, aunque venga con currency', async () => {
+    await POST(
+      makeRequest({
+        ...VALID_BODY,
+        meta_event_name: 'InitiateCheckout',
+        custom_data: { value: NaN, currency: 'MXN' },
+      })
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).data[0]).not.toHaveProperty('custom_data');
+  });
+
+  it('descarta custom_data si viene value sin currency', async () => {
+    await POST(
+      makeRequest({
+        ...VALID_BODY,
+        meta_event_name: 'InitiateCheckout',
+        custom_data: { value: 199 },
+      })
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).data[0]).not.toHaveProperty('custom_data');
+  });
+
   it('responde 502 si Meta falla, sin lanzar', async () => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ error: { message: 'boom' } }), { status: 500 }));
-    const res = await POST(makeRequest(VALID_BODY));
-    expect(res.status).toBe(502);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const res = await POST(makeRequest(VALID_BODY));
+      expect(res.status).toBe(502);
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+      expect(errorSpy.mock.calls[0][0]).toBe('capi_send_failed');
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  describe('origen y user-agent', () => {
+    it('rechaza con 403 cuando el origin no coincide con el host (CSRF cross-site)', async () => {
+      const res = await POST(makeRequest(VALID_BODY, { origin: 'https://evil.example', host: 'localhost' }));
+      expect(res.status).toBe(403);
+      expect(await res.json()).toEqual({ error: 'bad_origin' });
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('acepta cuando el origin coincide con el host', async () => {
+      const res = await POST(makeRequest(VALID_BODY, { origin: 'http://localhost', host: 'localhost' }));
+      expect(res.status).toBe(200);
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    it('usa el referer cuando no hay origin', async () => {
+      const res = await POST(makeRequest(VALID_BODY, { referer: 'http://localhost/', host: 'localhost' }));
+      expect(res.status).toBe(200);
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    it('descarta silenciosamente peticiones de bots/crawlers de Meta y otros (sin llamar a Meta)', async () => {
+      const res = await POST(makeRequest(VALID_BODY, { 'user-agent': 'facebookexternalhit/1.1' }));
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ skipped: 'bot' });
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
+
+  it('ignora internal_name/metadata/consent_version del body: no llegan al payload de Meta', async () => {
+    await POST(
+      makeRequest({
+        ...VALID_BODY,
+        internal_name: 'quiz_complete',
+        metadata: { step: 'peso' },
+        consent_version: '2026-08-24',
+      })
+    );
+    const sent = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(sent.data[0]).not.toHaveProperty('internal_name');
+    expect(sent.data[0]).not.toHaveProperty('metadata');
+    expect(sent.data[0]).not.toHaveProperty('consent_version');
   });
 });

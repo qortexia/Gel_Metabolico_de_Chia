@@ -15,14 +15,35 @@ function optionalString(value: unknown): string | null {
 }
 
 // Strict allowlist: this is the compliance guardrail on the server side.
+// `value` only makes sense paired with a currency, so both or neither.
 function pickCustomData(value: unknown): Record<string, string | number> | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const raw = value as Record<string, unknown>;
   const out: Record<string, string | number> = {};
-  if (typeof raw.value === 'number') out.value = raw.value;
-  if (typeof raw.currency === 'string') out.currency = raw.currency;
+  if (typeof raw.value === 'number' && Number.isFinite(raw.value) && typeof raw.currency === 'string') {
+    out.value = raw.value;
+    out.currency = raw.currency;
+  }
   if (typeof raw.content_name === 'string') out.content_name = raw.content_name;
   return Object.keys(out).length ? out : undefined;
+}
+
+const BOT_UA_RE =
+  /bot|crawler|spider|preview|headless|facebookexternalhit|meta-externalagent|whatsapp|telegrambot|slurp|bingpreview/i;
+
+// This endpoint is only ever meant to be called from our own pages via
+// fetch(keepalive: true). A request from another origin is not a valid
+// mirror of a browser Pixel event.
+function sameOrigin(req: Request): boolean {
+  const origin = req.headers.get('origin') ?? req.headers.get('referer');
+  if (!origin) return true; // some keepalive/beacon paths omit both; shape validation still applies
+  const host = req.headers.get('host');
+  if (!host) return true;
+  try {
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
 }
 
 export async function POST(req: Request) {
@@ -30,6 +51,14 @@ export async function POST(req: Request) {
   const accessToken = process.env.META_CAPI_ACCESS_TOKEN;
   if (!pixelId || !accessToken) {
     return NextResponse.json({ error: 'capi_not_configured' }, { status: 503 });
+  }
+
+  if (!sameOrigin(req)) {
+    return NextResponse.json({ error: 'bad_origin' }, { status: 403 });
+  }
+
+  if (BOT_UA_RE.test(req.headers.get('user-agent') ?? '')) {
+    return NextResponse.json({ skipped: 'bot' });
   }
 
   let body: Record<string, unknown>;
