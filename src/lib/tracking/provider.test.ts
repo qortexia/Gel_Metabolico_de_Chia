@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createTrackingProvider, buildCustomData } from './provider';
+import { createTrackingProvider, buildCustomData, type CapiTransport } from './provider';
 import { getAnonId, getSessionId, eventIdFor } from './ids';
 
 describe('createTrackingProvider', () => {
@@ -100,6 +100,25 @@ describe('createTrackingProvider', () => {
   it('un transport que falla no rompe el flujo', () => {
     const transport = vi.fn().mockRejectedValue(new Error('network'));
     expect(() => createTrackingProvider({ transport, now: fixedNow })('quiz_complete')).not.toThrow();
+  });
+
+  it('un transport que lanza de forma síncrona tampoco rompe el flujo', () => {
+    const transport = vi.fn(() => {
+      throw new Error('sync');
+    });
+    expect(() =>
+      createTrackingProvider({ transport: transport as unknown as CapiTransport, now: fixedNow })('quiz_complete')
+    ).not.toThrow();
+  });
+
+  it('eventos no mapeados no entran en la lista de enviados (no consumen el límite de dedup)', () => {
+    const transport = vi.fn().mockResolvedValue(undefined);
+    const provider = createTrackingProvider({ transport, now: fixedNow });
+    provider('imc_view');
+    provider('quiz_answer', { step: 'peso', value: 85 });
+    expect(window.sessionStorage.getItem('gel-chia-quiz-mx:sent_event_ids')).toBeNull();
+    provider('quiz_complete');
+    expect(JSON.parse(window.sessionStorage.getItem('gel-chia-quiz-mx:sent_event_ids') ?? '[]')).toHaveLength(1);
   });
 });
 

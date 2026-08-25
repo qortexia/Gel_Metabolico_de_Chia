@@ -86,11 +86,11 @@ export function createTrackingProvider(
     const scopeId = EVENT_SCOPE[event] === 'anon' ? anonId : sessionId;
     const eventId = eventIdFor(scopeId, event, stepRefFor(event, payload));
 
-    if (sent.has(eventId)) return;
-    markSent(sent, eventId);
-
     const meta = EVENT_MAP[event];
     if (!meta) return;
+
+    if (sent.has(eventId)) return;
+    markSent(sent, eventId);
 
     const customData = buildCustomData(meta, payload);
     fbqTrack(meta, customData ?? {}, eventId);
@@ -106,8 +106,12 @@ export function createTrackingProvider(
       fbp: getFbp(),
     };
     if (customData) body.custom_data = customData;
-    transport(body).catch(() => {
-      // browser pixel already fired; server mirror is best-effort here (retry lives in the hub, Fase 1)
-    });
+    try {
+      transport(body).catch(() => {
+        // browser pixel already fired; server mirror is best-effort here (retry lives in the hub, Fase 1)
+      });
+    } catch {
+      // transport threw synchronously; browser pixel already fired, server mirror is best-effort here
+    }
   };
 }
