@@ -14,7 +14,8 @@ import {
   OFERTA,
 } from '@/lib/content/copy';
 import { calcularImc, calcularKgABajar, calcularFechaObjetivo, categoriaImc } from '@/lib/calculations';
-import { buildCheckoutUrl, getUtmsFromLocation, DEFAULT_CHECKOUT_URL } from '@/lib/checkout';
+import { buildCheckoutUrl, DEFAULT_CHECKOUT_URL } from '@/lib/checkout';
+import { getCheckoutParams } from '@/lib/tracking/attribution';
 import { track } from '@/lib/analytics';
 import { QuizStep } from './quiz/QuizStep';
 import { ChoiceCard } from './quiz/ChoiceCard';
@@ -45,14 +46,11 @@ export function QuizFunnel() {
   }, [answers.peso, answers.estatura, answers.objetivo]);
 
   useEffect(() => {
-    if (currentIndex === 0) track('quiz_start');
-    if (screen?.kind === 'imc') track('imc_view');
-    if (screen?.kind === 'projection') track('projection_view');
-    if (screen?.kind === 'offer') {
-      track('result_view');
-      track('offer_view');
-    }
-    if (currentIndex === SCREENS.length - 1) track('quiz_complete');
+    if (!screen) return;
+    track('quiz_step_view', { step: screen.id, index: currentIndex });
+    if (screen.kind === 'imc') track('imc_view');
+    if (screen.kind === 'projection') track('projection_view');
+    if (screen.kind === 'offer') track('offer_view');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex]);
 
@@ -200,6 +198,9 @@ export function QuizFunnel() {
               const trimmed = value.trim();
               setAnswer(screen.variable, trimmed);
               track('quiz_answer', { step: screen.id, value: trimmed });
+              // 'nombre' is the last question: answering it is the semantic
+              // "quiz complete" (Lead), long before the VSL2 gate and the offer.
+              if (screen.id === 'nombre') track('quiz_complete');
               goNext();
             }}
             className="min-h-[44px] w-full rounded-full bg-brand px-6 py-3 text-lg font-bold text-white disabled:opacity-40"
@@ -356,8 +357,7 @@ export function QuizFunnel() {
   const rawPriceMxn = Number(process.env.NEXT_PUBLIC_OFFER_PRICE_MXN);
   const priceMxn = Number.isFinite(rawPriceMxn) && rawPriceMxn > 0 ? rawPriceMxn : OFERTA.precioMxnDefault;
   const checkoutBase = process.env.NEXT_PUBLIC_CHECKOUT_URL || DEFAULT_CHECKOUT_URL;
-  const utms = typeof window !== 'undefined' ? getUtmsFromLocation(window.location.search) : {};
-  const checkoutUrl = buildCheckoutUrl(checkoutBase, utms);
+  const checkoutUrl = buildCheckoutUrl(checkoutBase, getCheckoutParams());
 
   return (
     <div key={screen.id} className="flex min-h-screen flex-col items-center bg-background px-4 py-8">

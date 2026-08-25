@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { QuizFunnel } from './QuizFunnel';
 import { useQuizStore } from '@/lib/store';
 import { SCREENS } from '@/lib/content/copy';
+import { setAnalyticsProvider, resetAnalytics } from '@/lib/analytics';
+import { getAnonId, getSessionId } from '@/lib/tracking/ids';
 
 describe('QuizFunnel', () => {
   beforeEach(() => {
@@ -156,6 +158,71 @@ describe('QuizFunnel', () => {
       expect(() => render(<QuizFunnel />)).not.toThrow();
       expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
       expect(screen.getByText('$199')).toBeInTheDocument();
+    });
+  });
+
+  describe('eventos de tracking', () => {
+    beforeEach(() => {
+      resetAnalytics();
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+    });
+
+    afterEach(() => {
+      resetAnalytics();
+    });
+
+    it('emite quiz_step_view con el id de la pantalla al montar cada paso', () => {
+      const spy = vi.fn();
+      setAnalyticsProvider(spy);
+      const imcIndex = SCREENS.findIndex((s) => s.id === 'imc');
+      useQuizStore.getState().goToIndex(imcIndex);
+      render(<QuizFunnel />);
+      expect(spy).toHaveBeenCalledWith('quiz_step_view', { step: 'imc', index: imcIndex });
+      expect(spy).toHaveBeenCalledWith('imc_view', undefined);
+    });
+
+    it('emite quiz_complete al confirmar el nombre (última pregunta), no al llegar a la oferta', async () => {
+      const spy = vi.fn();
+      setAnalyticsProvider(spy);
+      const nombreIndex = SCREENS.findIndex((s) => s.id === 'nombre');
+      useQuizStore.getState().goToIndex(nombreIndex);
+      render(<QuizFunnel />);
+      await userEvent.type(screen.getByPlaceholderText('Escribe tu nombre…'), 'Ana');
+      await userEvent.click(screen.getByText('Continuar'));
+      expect(spy).toHaveBeenCalledWith('quiz_complete', undefined);
+    });
+
+    it('en la pantalla de oferta no emite result_view ni quiz_complete, solo offer_view', () => {
+      const spy = vi.fn();
+      setAnalyticsProvider(spy);
+      const ofertaIndex = SCREENS.findIndex((s) => s.id === 'oferta');
+      useQuizStore.getState().goToIndex(ofertaIndex);
+      render(<QuizFunnel />);
+      expect(spy).toHaveBeenCalledWith('offer_view', undefined);
+      expect(spy).not.toHaveBeenCalledWith('quiz_complete', expect.anything());
+      const names = spy.mock.calls.map((c) => c[0]);
+      expect(names).not.toContain('result_view');
+      expect(names).not.toContain('quiz_start');
+    });
+
+    it('la URL de checkout lleva s1=session_id y s2=anon_id', async () => {
+      const ofertaIndex = SCREENS.findIndex((s) => s.id === 'oferta');
+      useQuizStore.getState().goToIndex(ofertaIndex);
+      render(<QuizFunnel />);
+      // jsdom no implementa navegación: al asignar window.location.href logea
+      // "Error: Not implemented: navigation" por console.error. Se silencia solo
+      // en este test para mantener la salida limpia.
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        await userEvent.click(screen.getByText('QUIERO MI PLAN'));
+        const link = screen.getByText('Ir al pago manualmente');
+        const href = link.getAttribute('href') ?? '';
+        expect(href).toContain(`s1=${getSessionId()}`);
+        expect(href).toContain(`s2=${getAnonId()}`);
+      } finally {
+        errorSpy.mockRestore();
+      }
     });
   });
 });
