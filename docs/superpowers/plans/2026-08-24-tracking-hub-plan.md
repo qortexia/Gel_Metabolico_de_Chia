@@ -16,7 +16,7 @@
 |---|---|---|---|---|
 | **0a** | Pixel + CAPI same-origin no quiz-app, ids determinísticos, propagação s1/s2/s3/sck pro checkout, consentimento, correções de eventos | Claude (código) | **hoje** | `2026-08-24-fase-0a-quiz-app-tracking.md` |
 | **0b** | Configuração: Events Manager, Kiwify, anúncios, tokens | **Eduardo** | **hoje**, em paralelo | checklist abaixo |
-| **1** | `tracking-hub`: Supabase (schema completo), `/api/ingest`, rewrite first-party, dashboard com drill-down, Basic Auth | Claude | 1-3 dias | a escrever ao fim da Fase 0 |
+| **1** | `qx-hub`: Supabase (schema completo), `/api/ingest`, rewrite first-party, dashboard com drill-down, Basic Auth | Claude | 1-3 dias | `2026-08-26-fase-1-tracking-hub.md` |
 | **1.5** | Experimento: passo opcional de email no quiz | Claude | após Fase 1 | a escrever |
 | **2** | Webhook Kiwify (todos os eventos), Purchase real via CAPI, matching em 3 níveis, cron de retry, compra de teste, troca de bastão do Purchase | Claude + Eduardo (compra de teste) | após Fase 1 | a escrever |
 | **3** | Watch-time das VSLs (hook, `video_watch`, milestones → ViewContent, curva de abandono por VSL) | Claude | após Fase 2 | a escrever |
