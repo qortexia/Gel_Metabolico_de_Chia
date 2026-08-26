@@ -131,7 +131,7 @@ export const SCREENS: ScreenConfig[] = [
   {
     id: 'vsl1',
     kind: 'vsl',
-    src: 'https://ejdwzyue8qsbigw0.public.blob.vercel-storage.com/VSL%20Dra%201.mp4',
+    src: 'https://pub-975ba70de95d49a7b38ce8ec4ecc8c06.r2.dev/vsl1-720p.mp4',
     overlayText:
       'Quédate hasta el final: al final te muestro exactamente cómo usar el Gel Metabólico de Chía para empezar a desinflamarte desde los primeros días.',
     ctaLabel: 'QUIERO MI RECETA',
@@ -291,7 +291,7 @@ export const SCREENS: ScreenConfig[] = [
   {
     id: 'vsl2',
     kind: 'vsl',
-    src: 'https://ejdwzyue8qsbigw0.public.blob.vercel-storage.com/Video01_1.mp4',
+    src: 'https://pub-975ba70de95d49a7b38ce8ec4ecc8c06.r2.dev/vsl2-720p.mp4',
     overlayText: '¡Tu análisis está listo! Mira el video para descubrir tu plan completo.',
     ctaLabel: 'QUIERO EMPEZAR MI TRANSFORMACIÓN',
     // Infinity = fallback while duration is still unknown; once known,
