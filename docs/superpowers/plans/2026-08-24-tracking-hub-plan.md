@@ -41,6 +41,8 @@ Plano detalhado: [`2026-08-24-fase-0a-quiz-app-tracking.md`](./2026-08-24-fase-0
 
 **Critério de aceite:** deploy em produção com Pixel + CAPI validados no Test Events, `s1` visível na URL de checkout, checkbox de consentimento obrigatório, todos os testes verdes.
 
+**✅ FASE 0a CONCLUÍDA em 2026-08-26.** PR #1 mergeado (`main` @ 2f91101), produção deployada, QA no Test Events aprovado (Lead e InitiateCheckout deduplicados nos dois sentidos, sem eventos de saúde), `META_TEST_EVENT_CODE` removido de Production. Achado colateral resolvido no caminho: as VSLs estavam quebradas em produção (Vercel Blob Hobby estourou a cota servindo masters de 1 GB) — comprimidas para 720p e hospedadas no Cloudflare R2 (`pub-975ba70de95d49a7b38ce8ec4ecc8c06.r2.dev`), envs `NEXT_PUBLIC_VSL1_URL/VSL2_URL` no Vercel.
+
 ---
 
 ## Fase 0b — configuração (Eduardo, hoje)
