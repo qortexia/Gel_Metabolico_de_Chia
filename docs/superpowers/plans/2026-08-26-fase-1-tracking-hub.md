@@ -13,6 +13,10 @@
 ## Global Constraints
 
 - **Rulings deste plano (spec deixou em aberto):** hub = repo `qortexia/qx-hub` (privado), pasta `h:/Second_Brain/03-Dev/Projetos_Pessoal/qx-hub`, projeto Vercel `qx-hub`; Supabase região `us-east-1`; nomes de rota públicos neutros: `/api/ingest`, `/api/hooks/*`, `/api/cron/*`, `/api/dash/*`, `/dashboard/*` — nunca `track`, `tracking`, `analytics`, `pixel`.
+  - **Circuit breaker de volume (spec §6, marcado "Fase 1")** → adiado para a Fase 2/4: com CAPI só em Lead/IC e ~80 cliques/dia não há média móvel que justifique; o gate manual §11.4 (`CAPI_PAUSED_<SLUG>=1`, T5/T9/T10) cobre a pausa. Revisitar quando IC passar de ~30-50/semana (§5.5).
+  - **Atribuição da sessão** = `getAttribution()` do SDK (último clique conhecido da pessoa, em localStorage — mesmo merge de `getCheckoutParams()` da Fase 0a), não só os params da URL da visita. Sessões de retorno direto herdam o clique anterior. Diverge da letra de §4.1/§4.2 de propósito, para a segmentação por anúncio no funil por pessoa funcionar em retornos.
+  - **Retenção (spec §9):** o expurgo de `sessions.client_ip`/`client_user_agent` e `consents.user_agent` com > 90 dias fica na **Fase 2** (mesmo cron do `capi-retry`). Prazo duro: Fase 2 em produção antes de 90 dias após o deploy da Task 11, porque a `/privacy` já promete a eliminação.
+  - **`pageshow persisted` (spec §6):** não implementado — efeitos React não re-executam em restore de bfcache e o `event_id` determinístico absorve re-emissões (no-op). A guarda de `document.prerendering` está implementada (T12), **adiando** o evento, nunca descartando.
 - Contrato do ingest (o que o SDK manda) = spec §5.1 **+** `attribution` e `event_source_url`:
   `{ project, anon_id, session_id, event_id, internal_name, meta_event_name|null, occurred_at, event_source_url, metadata, consent_version|null, fbc|null, fbp|null, custom_data?, attribution: { utm_source?, utm_medium?, utm_campaign?, utm_term?, utm_content?, fbclid?, campaign_id?, adset_id?, ad_id?, placement? } }`.
 - O hub **nunca traduz** evento interno → Meta; só valida o par `(internal_name, meta_event_name)` contra a tabela do projeto. Mismatch ou nome fora da allowlist → grava, **não** despacha CAPI, loga warning. `Purchase` no ingest → 400.
@@ -23,8 +27,9 @@
 - `Origin`/`Referer` (quando presentes) devem pertencer a `allowed_origins` do projeto → senão 403. Ausência de ambos é permitida.
 - `event_time` CAPI = `occurred_at` do cliente se `|occurred_at − now| ≤ 10 min`, senão `now`. `action_source: 'website'`. `external_id = sha256(anon_id)`. `fbc/fbp/ip/ua` nunca hasheados. `currency` só com `value` finito.
 - RLS **ligado em todas as tabelas, zero policies**. O hub conecta com `DATABASE_URL` (pooler transaction mode, `prepare: false`); migrações usam `DIRECT_URL` (pooler session mode). Nenhuma env `NEXT_PUBLIC_SUPABASE_*`; nenhuma anon key em lugar nenhum.
-- Segredos só em env: `META_CAPI_TOKEN_CHIA`, `META_TEST_EVENT_CODE_CHIA` (só QA), `DATABASE_URL`, `DIRECT_URL`, `DASHBOARD_BASIC_AUTH` (`usuario:senha`). Nunca commitar `.env*`.
-- Dashboard: funil **por pessoa** (`DISTINCT anon_id`, `MAX(furthest_step)`), filtro `is_bot = false` por padrão, drill-down nível 1 (sessões do step) e nível 2 (timeline da sessão), card "CAPI failed 24 h". Agregação por dia usa `ad_account_timezone` do projeto (`America/Mexico_City`).
+- Segredos só em env: `META_CAPI_TOKEN_CHIA`, `META_TEST_EVENT_CODE_CHIA` (só QA), `DATABASE_URL`, `DIRECT_URL`, `DASHBOARD_BASIC_AUTH` (`usuario:senha`). Opcional: `CAPI_PAUSED_CHIA=1` pausa o espelho CAPI do projeto (gate §11.4) sem parar o hub. Nunca commitar `.env*`.
+- Dashboard: funil **por pessoa** (`DISTINCT anon_id`, `MAX(furthest_step)`), filtro `is_bot = false` por padrão com toggle `?bots=1` (spec §10), segmentação por `ad_id/adset_id/campaign_id/utm_content` (spec §10), janela de N dias-calendário em `ad_account_timezone` do projeto (`America/Mexico_City`), drill-down nível 1 (sessões do step, mesma janela/segmento) e nível 2 (timeline da sessão), card "CAPI failed 24 h", badge "CAPI pausado".
+- `vitest` não faz type-check: toda task com código de rota/handler/componente roda `npx tsc --noEmit` antes do commit.
 - Testes: descrições em português; unitários com `FakeDb` (captura SQL/params); testes de integração com banco real só rodam se `TEST_DATABASE_URL` estiver definido (senão `skip`).
 - quiz-app após a integração: `next.config.js` com rewrite `/api/e/:path*` → `${HUB_URL}/api/:path*`; provider posta **todos** os eventos em `/api/e/ingest`; rota `/api/e/capi` e `src/lib/tracking/server/` removidas; envs `META_CAPI_ACCESS_TOKEN`/`META_TEST_EVENT_CODE`/`META_GRAPH_VERSION` removidas do quiz-app (o Pixel ID continua).
 - Branches: hub em `main` desde o início (repo novo, sem produção) com commits pequenos; quiz-app em `feat/tracking-fase-1-hub`.
@@ -106,6 +111,19 @@ export default defineConfig({
 ```ts
 // vitest.setup.ts
 import '@testing-library/jest-dom/vitest';
+
+// recharts 2.x ResponsiveContainer calls `new ResizeObserver` unguarded; jsdom
+// does not define it. With the container at 0x0 the FunnelChart renders null, so
+// chart labels never duplicate the table text in tests. Do NOT "fix" this by
+// giving ResponsiveContainer fixed width/height.
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  class ResizeObserverStub {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = ResizeObserverStub;
+}
 ```
 
 Adicionar em `package.json` → `"scripts"`: `"test": "vitest run"`, `"test:watch": "vitest"`, `"migrate": "tsx scripts/migrate.ts"`.
@@ -148,6 +166,8 @@ DIRECT_URL=postgresql://postgres.<ref>:<senha>@aws-0-us-east-1.pooler.supabase.c
 DASHBOARD_BASIC_AUTH=eduardo:troque-esta-senha
 META_CAPI_TOKEN_CHIA=
 META_TEST_EVENT_CODE_CHIA=
+# 1 = pausa o espelho CAPI do projeto (spec §11.4). Hub/Supabase seguem gravando; eventos ficam capi_status='skipped', capi_error='paused'.
+CAPI_PAUSED_CHIA=
 META_GRAPH_VERSION=v23.0
 ```
 
@@ -205,6 +225,10 @@ describe('projects config', () => {
     expect(steps.find((s) => s.key === 'checkout_click')?.order).toBeGreaterThan(
       steps.find((s) => s.key === 'offer_view')!.order
     );
+    // quiz_complete fires on the `nombre` submit, before loader2/vsl2/oferta
+    const order = (k: string) => steps.find((s) => s.key === k)!.order;
+    expect(order('quiz_complete')).toBeGreaterThan(order('quiz_step_view:nombre'));
+    expect(order('quiz_complete')).toBeLessThan(order('quiz_step_view:loader2'));
   });
 
   it('metadata allowlist nunca inclui valores de resposta', () => {
@@ -226,8 +250,8 @@ describe('projects config', () => {
 
 ```ts
 // src/config/projects.ts
-export type MetaEventName = 'Lead' | 'InitiateCheckout' | 'ViewContent';
-export const META_EVENT_ALLOWLIST: readonly MetaEventName[] = ['Lead', 'InitiateCheckout', 'ViewContent'];
+export const META_EVENT_ALLOWLIST = ['Lead', 'InitiateCheckout', 'ViewContent'] as const;
+export type MetaEventName = (typeof META_EVENT_ALLOWLIST)[number];
 
 export type FunnelStep = { key: string; order: number; label: string };
 
@@ -277,12 +301,22 @@ const CHIA_SCREENS = [
   'nombre', 'loader2', 'vsl2', 'oferta',
 ];
 
+const screenStep = (id: string, order: number): FunnelStep => ({
+  key: `quiz_step_view:${id}`,
+  order,
+  label: `Pantalla ${CHIA_SCREENS.indexOf(id) + 1}: ${id}`,
+});
+const AFTER_NOMBRE = CHIA_SCREENS.indexOf('nombre') + 1; // 21
+
 export const FUNNEL_STEPS_CHIA: FunnelStep[] = [
   { key: 'landing_view', order: 1, label: 'Landing' },
   { key: 'consent_accept', order: 2, label: 'Consentimiento' },
   { key: 'quiz_start', order: 3, label: 'Inicio del quiz' },
-  ...CHIA_SCREENS.map((id, i) => ({ key: `quiz_step_view:${id}`, order: 10 + i, label: `Pantalla ${i + 1}: ${id}` })),
-  { key: 'quiz_complete', order: 40, label: 'Lead (nombre)' },
+  ...CHIA_SCREENS.slice(0, AFTER_NOMBRE).map((id, i) => screenStep(id, 10 + i)), // deseo 10 … nombre 30
+  // quiz_complete fires on the `nombre` submit (QuizFunnel.tsx), BEFORE loader2/vsl2/oferta —
+  // it must sit between them or GREATEST(furthest_step) would hide the VSL2 drop-off.
+  { key: 'quiz_complete', order: 31, label: 'Lead (nombre)' },
+  ...CHIA_SCREENS.slice(AFTER_NOMBRE).map((id, i) => screenStep(id, 32 + i)), // loader2 32, vsl2 33, oferta 34
   { key: 'offer_view', order: 45, label: 'Oferta' },
   { key: 'checkout_click', order: 50, label: 'InitiateCheckout' },
   // Fase 2: checkout_abandoned 60, payment_refused 61, purchase 70
@@ -608,6 +642,8 @@ describe('classify', () => {
   });
   it('firstForwardedIp pega o primeiro IP da cadeia', () => {
     expect(firstForwardedIp('187.1.2.3, 10.0.0.1')).toBe('187.1.2.3');
+    expect(firstForwardedIp('2001:db8::1')).toBe('2001:db8::1');
+    expect(firstForwardedIp('not-an-ip, 1.2.3.4')).toBeNull();
     expect(firstForwardedIp(null)).toBeNull();
   });
 });
@@ -644,7 +680,7 @@ export const IngestPayloadSchema = z.object({
   session_id: uuid,
   event_id: uuid,
   internal_name: z.string().min(1).max(64),
-  meta_event_name: z.enum(META_EVENT_ALLOWLIST as [string, ...string[]]).nullable(),
+  meta_event_name: z.enum(META_EVENT_ALLOWLIST).nullable(),
   occurred_at: isoDate,
   event_source_url: z.string().url().max(2048),
   metadata: z.record(z.unknown()).default({}),
@@ -700,10 +736,15 @@ export function metaMappingOk(project: ProjectConfig, internalName: string, meta
   return metaEventName === null || metaEventName === expected;
 }
 
+// Only well-formed IPv4/IPv6 literals pass: the value is cast to ::inet in the
+// session upsert and a garbage header must not turn into a 500 after the event
+// row was already inserted.
+const IP_RE = /^(\d{1,3}\.){3}\d{1,3}$|^[0-9a-f:]{2,45}$/i;
+
 export function firstForwardedIp(header: string | null): string | null {
   if (!header) return null;
   const first = header.split(',')[0].trim();
-  return first.length ? first : null;
+  return IP_RE.test(first) ? first : null;
 }
 ```
 
@@ -731,7 +772,7 @@ import { FakeDb } from '@/test/fakeDb';
 const ev = {
   project_id: 'chia', event_id: '33333333-3333-5333-8333-333333333333', session_id: '22222222-2222-4222-8222-222222222222',
   anon_id: '11111111-1111-4111-8111-111111111111', internal_name: 'quiz_complete', meta_event_name: 'Lead' as const,
-  step_order: 40, occurred_at: '2026-08-26T12:00:00.000Z', metadata: {}, is_bot: false,
+  step_order: 31, occurred_at: '2026-08-26T12:00:00.000Z', metadata: {}, is_bot: false,
 };
 
 describe('persist', () => {
@@ -747,7 +788,7 @@ describe('persist', () => {
     const db = new FakeDb();
     await upsertSession(db, {
       session_id: ev.session_id, project_id: 'chia', anon_id: ev.anon_id, seen_at: ev.occurred_at,
-      furthest_step: 40, furthest_event: 'quiz_complete', attribution: { utm_source: 'ig', ad_id: '3' },
+      furthest_step: 31, furthest_event: 'quiz_complete', attribution: { utm_source: 'ig', ad_id: '3' },
       fbc: 'fb.1.1.abc', fbp: null, landing_url: 'https://x/?a=1', client_ip: '187.1.2.3', client_user_agent: 'UA',
       is_bot: false, consent_version: '2026-08-24',
     });
@@ -868,7 +909,18 @@ export async function markCapi(db: Db, eventId: string, status: 'sent' | 'failed
 **Interfaces:**
 - Produces: `sha256`, `resolveEventTime`, `buildServerEvent(input, now): GraphEvent`, `sendEventsToMeta(events, cfg)`, `dispatchCapi(db, project, payload, ctx, deps?)`
 
-- [ ] **Step 1: Testes** — `build.test.ts` e `send.test.ts` são cópia dos testes de `quiz-app/src/lib/tracking/server/capi.test.ts` (Fase 0a), com `// @vitest-environment node` removido (o ambiente já é node), URL sem token na query e `access_token` no body, `signal` `instanceof AbortSignal`. Copiar os arquivos, ajustar imports (`./build`, `./send`).
+- [ ] **Step 1: Testes** — `build.test.ts` e `send.test.ts` são cópia dos testes de `quiz-app/src/lib/tracking/server/capi.test.ts` (Fase 0a), com `// @vitest-environment node` removido (o ambiente já é node), URL sem token na query e `access_token` no body, `signal` `instanceof AbortSignal`. Dividir por módulo, com estes imports:
+
+```ts
+// src/lib/capi/build.test.ts
+import { sha256, resolveEventTime, buildServerEvent, isMetaEventName, pickCustomData } from './build';
+
+// src/lib/capi/send.test.ts
+import { sendEventsToMeta } from './send';
+import { buildServerEvent } from './build';
+```
+
+Acrescentar em `build.test.ts` os dois testes de `pickCustomData` de `quiz-app/src/app/api/e/capi/route.test.ts` (NaN → sem custom_data; value sem currency → sem custom_data) reescritos como chamadas diretas: `expect(pickCustomData({ value: NaN, currency: 'MXN' })).toBeUndefined()`, `expect(pickCustomData({ value: 199 })).toBeUndefined()`, `expect(pickCustomData({ value: 199, currency: 'MXN', peso: 85 })).toEqual({ value: 199, currency: 'MXN' })`.
 
 ```ts
 // src/lib/capi/dispatch.test.ts
@@ -900,6 +952,9 @@ describe('dispatchCapi', () => {
     expect(await dispatchCapi(new FakeDb(), PROJECTS.chia, { ...payload, meta_event_name: null }, ctx, { send, env: { META_CAPI_TOKEN_CHIA: 'tok' } })).toBe('skipped');
     expect(await dispatchCapi(new FakeDb(), PROJECTS.chia, payload, { ...ctx, isBot: true }, { send, env: { META_CAPI_TOKEN_CHIA: 'tok' } })).toBe('skipped');
     expect(await dispatchCapi(new FakeDb(), PROJECTS.chia, payload, ctx, { send, env: {} })).toBe('skipped');
+    const paused = new FakeDb();
+    expect(await dispatchCapi(paused, PROJECTS.chia, payload, ctx, { send, env: { META_CAPI_TOKEN_CHIA: 'tok', CAPI_PAUSED_CHIA: '1' } })).toBe('skipped');
+    expect(paused.last().params).toEqual(['skipped', 'paused', null, payload.event_id]);
     expect(send).not.toHaveBeenCalled();
   });
   it('falha da Meta vira failed com a mensagem, sem lançar', async () => {
@@ -913,7 +968,22 @@ describe('dispatchCapi', () => {
 
 - [ ] **Step 2: Rodar para ver falhar.**
 
-- [ ] **Step 3: Implementar** — `build.ts` e `send.ts`: copiar `quiz-app/src/lib/tracking/server/capi.ts` (estado final da Fase 0a, já com timeout e token no body) e dividir: `build.ts` (`sha256`, `isMetaEventName`, `resolveEventTime`, `ServerEventInput`, `GraphEvent`, `buildServerEvent`, `pickCustomData`) e `send.ts` (`MetaConfig`, `sendEventsToMeta`). Importar `META_EVENT_ALLOWLIST` de `@/config/projects`.
+- [ ] **Step 3: Implementar** — `build.ts` recebe de `quiz-app/src/lib/tracking/server/capi.ts` (estado final da Fase 0a): `sha256`, `isMetaEventName`, `resolveEventTime`, `ServerEventInput`, `GraphEvent`, `buildServerEvent`; e recebe de `quiz-app/src/app/api/e/capi/route.ts` a função `pickCustomData` (lá é privada; aqui **exportada** — continua necessária mesmo com o `.strip()` do zod porque impõe `value`+`currency` juntos e descarta objeto vazio). `send.ts` recebe `MetaConfig`, `MetaSendResult`, `sendEventsToMeta` (com timeout e token no body). Importar `META_EVENT_ALLOWLIST` de `@/config/projects`.
+
+```ts
+// src/lib/capi/build.ts (trazido de route.ts, agora exportado)
+export function pickCustomData(value: unknown): Record<string, string | number> | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const raw = value as Record<string, unknown>;
+  const out: Record<string, string | number> = {};
+  if (typeof raw.value === 'number' && Number.isFinite(raw.value) && typeof raw.currency === 'string') {
+    out.value = raw.value;
+    out.currency = raw.currency;
+  }
+  if (typeof raw.content_name === 'string') out.content_name = raw.content_name;
+  return Object.keys(out).length ? out : undefined;
+}
+```
 
 ```ts
 // src/lib/capi/dispatch.ts
@@ -932,6 +1002,11 @@ export async function dispatchCapi(db: Db, project: ProjectConfig, p: IngestPayl
   const token = env[project.capiTokenEnv];
   if (!p.meta_event_name || ctx.isBot || !token) {
     await markCapi(db, p.event_id, 'skipped');
+    return 'skipped';
+  }
+  // spec §6 step 8 / §11.4: manual pause of the CAPI mirror (hub keeps recording)
+  if (env[`CAPI_PAUSED_${project.slug.toUpperCase()}`] === '1') {
+    await markCapi(db, p.event_id, 'skipped', 'paused');
     return 'skipped';
   }
   const event = buildServerEvent(
@@ -957,7 +1032,7 @@ export async function dispatchCapi(db: Db, project: ProjectConfig, p: IngestPayl
 }
 ```
 
-- [ ] **Step 4: Rodar** → PASS. **Step 5: Commit** `feat(capi): server event builder, Graph sender and per-project dispatch`.
+- [ ] **Step 4: Rodar** → PASS; `npx tsc --noEmit` limpo. **Step 5: Commit** `feat(capi): server event builder, Graph sender and per-project dispatch`.
 
 ---
 
@@ -1117,7 +1192,7 @@ export async function POST(req: Request) {
 }
 ```
 
-- [ ] **Step 4: Rodar** → PASS. **Step 5: Commit** `feat(ingest): POST /api/ingest composing validation, persistence and CAPI dispatch`.
+- [ ] **Step 4: Rodar** → PASS; `npx tsc --noEmit` limpo. **Step 5: Commit** `feat(ingest): POST /api/ingest composing validation, persistence and CAPI dispatch`.
 
 ---
 
@@ -1189,14 +1264,14 @@ export function middleware(req: NextRequest) {
 - Create: `src/lib/dash/queries.ts`, `src/lib/dash/queries.test.ts`
 
 **Interfaces:**
-- Produces: `funnelByPerson(db, project, sinceIso): Promise<FunnelRow[]>`, `sessionsAtStep(db, project, order, limit)`, `sessionTimeline(db, sessionId)`, `capiFailed24h(db, project)`, `computeFunnel(steps, persons)` (puro)
+- Produces: `type DashFilter = { days; seg?; includeBots? }`, `type Segment`, `funnelByPerson(db, project, filter): Promise<FunnelRow[]>`, `sessionsAtStep(db, project, order, filter, limit = 100)`, `segmentOptions(db, project, filter)`, `sessionTimeline(db, sessionId)`, `capiFailed24h(db, project)`, `computeFunnel(steps, persons)` (puro)
 
 - [ ] **Step 1: Teste**
 
 ```ts
 // src/lib/dash/queries.test.ts
 import { describe, it, expect } from 'vitest';
-import { computeFunnel, funnelByPerson, sessionsAtStep, sessionTimeline, capiFailed24h } from './queries';
+import { computeFunnel, funnelByPerson, sessionsAtStep, segmentOptions, sessionTimeline, capiFailed24h } from './queries';
 import { FakeDb } from '@/test/fakeDb';
 import { PROJECTS } from '@/config/projects';
 
@@ -1212,19 +1287,35 @@ describe('computeFunnel', () => {
 });
 
 describe('sql', () => {
-  it('funnelByPerson agrupa por pessoa com MAX(furthest_step) e exclui bots', async () => {
-    const db = new FakeDb().willReturn([{ fs: 40, n: 2 }]);
-    await funnelByPerson(db, PROJECTS.chia, '2026-08-01T00:00:00Z');
+  it('funnelByPerson agrupa por pessoa com MAX(furthest_step), exclui bots e usa janela no fuso da conta', async () => {
+    const db = new FakeDb().willReturn([{ fs: 31, n: 2 }]);
+    await funnelByPerson(db, PROJECTS.chia, { days: 7 });
     expect(db.last().text).toMatch(/max\(furthest_step\)/i);
     expect(db.last().text).toMatch(/not is_bot/i);
     expect(db.last().text).toMatch(/group by anon_id/i);
-    expect(db.last().params).toEqual(['chia', '2026-08-01T00:00:00Z']);
+    expect(db.last().text).toMatch(/at time zone \$3/i);
+    expect(db.last().params).toEqual(['chia', 7, 'America/Mexico_City']);
   });
-  it('sessionsAtStep filtra furthest_step = ordem e limita', async () => {
+  it('funnelByPerson aplica segmento (spec §10) e o toggle de bots', async () => {
     const db = new FakeDb();
-    await sessionsAtStep(db, PROJECTS.chia, 40, 50);
+    await funnelByPerson(db, PROJECTS.chia, { days: 7, seg: { ad_id: '3', utm_content: 'ad1' }, includeBots: true });
+    expect(db.last().text).toMatch(/meta_ad_id = \$4/);
+    expect(db.last().text).toMatch(/utm_content = \$5/);
+    expect(db.last().text).not.toMatch(/not is_bot/i);
+    expect(db.last().params).toEqual(['chia', 7, 'America/Mexico_City', '3', 'ad1']);
+  });
+  it('sessionsAtStep filtra furthest_step = ordem, mesma janela/segmento do funil, e limita', async () => {
+    const db = new FakeDb();
+    await sessionsAtStep(db, PROJECTS.chia, 31, { days: 7, seg: { ad_id: '3' } }, 50);
     expect(db.last().text).toMatch(/furthest_step = \$2/i);
-    expect(db.last().params).toEqual(['chia', 40, 50]);
+    expect(db.last().text).toMatch(/at time zone \$4/i);
+    expect(db.last().params).toEqual(['chia', 31, 7, 'America/Mexico_City', '3', 50]);
+  });
+  it('segmentOptions lista combinações campaign/adset/ad/utm_content por volume', async () => {
+    const db = new FakeDb();
+    await segmentOptions(db, PROJECTS.chia, { days: 7 });
+    expect(db.last().text).toMatch(/group by 1, 2, 3, 4/i);
+    expect(db.last().params).toEqual(['chia', 7, 'America/Mexico_City']);
   });
   it('sessionTimeline ordena por occurred_at', async () => {
     const db = new FakeDb();
@@ -1264,14 +1355,41 @@ export function computeFunnel(steps: FunnelStep[], persons: PersonBucket[]): Fun
   });
 }
 
-export async function funnelByPerson(db: Db, project: ProjectConfig, sinceIso: string): Promise<FunnelRow[]> {
+export type Segment = { ad_id?: string; adset_id?: string; campaign_id?: string; utm_content?: string };
+export type DashFilter = { days: number; seg?: Segment; includeBots?: boolean };
+
+const SEG_COL: Record<keyof Segment, string> = {
+  ad_id: 'meta_ad_id', adset_id: 'meta_adset_id', campaign_id: 'meta_campaign_id', utm_content: 'utm_content',
+};
+
+function segmentWhere(seg: Segment | undefined, params: unknown[]): string {
+  let sql = '';
+  for (const k of Object.keys(SEG_COL) as (keyof Segment)[]) {
+    const v = seg?.[k];
+    if (v) {
+      params.push(v);
+      sql += ` and ${SEG_COL[k]} = $${params.length}`;
+    }
+  }
+  return sql;
+}
+
+// Window = today (in the ad account timezone) plus the previous (days-1)
+// calendar days, matching how Ads Manager buckets days (spec §9).
+const sinceSql = (daysParam: number, tzParam: number) =>
+  `created_at >= (date_trunc('day', now() at time zone $${tzParam}::text) - ($${daysParam}::int - 1) * interval '1 day') at time zone $${tzParam}::text`;
+
+const botsSql = (includeBots?: boolean) => (includeBots ? '' : ' and not is_bot');
+
+export async function funnelByPerson(db: Db, project: ProjectConfig, filter: DashFilter): Promise<FunnelRow[]> {
+  const params: unknown[] = [project.slug, filter.days, project.adAccountTimezone];
   const persons = await db.query<PersonBucket>(
     `with persons as (
        select anon_id, max(furthest_step) as fs from sessions
-       where project_id = $1 and not is_bot and created_at >= $2
+       where project_id = $1${botsSql(filter.includeBots)} and ${sinceSql(2, 3)}${segmentWhere(filter.seg, params)}
        group by anon_id)
      select fs, count(*)::int as n from persons group by fs`,
-    [project.slug, sinceIso]
+    params
   );
   return computeFunnel(project.funnelSteps, persons);
 }
@@ -1281,12 +1399,29 @@ export type SessionSummary = {
   utm_source: string | null; utm_content: string | null; meta_ad_id: string | null; purchase_status: string | null;
 };
 
-export async function sessionsAtStep(db: Db, project: ProjectConfig, order: number, limit = 100): Promise<SessionSummary[]> {
+export async function sessionsAtStep(db: Db, project: ProjectConfig, order: number, filter: DashFilter, limit = 100): Promise<SessionSummary[]> {
+  const params: unknown[] = [project.slug, order, filter.days, project.adAccountTimezone];
+  const segSql = segmentWhere(filter.seg, params);
+  params.push(limit);
   return db.query<SessionSummary>(
     `select session_id, anon_id, created_at, last_seen_at, furthest_step, furthest_event, utm_source, utm_content, meta_ad_id, purchase_status
-     from sessions where project_id = $1 and not is_bot and furthest_step = $2
-     order by last_seen_at desc limit $3`,
-    [project.slug, order, limit]
+     from sessions
+     where project_id = $1${botsSql(filter.includeBots)} and furthest_step = $2 and ${sinceSql(3, 4)}${segSql}
+     order by last_seen_at desc limit $${params.length}`,
+    params
+  );
+}
+
+export type SegmentOption = { meta_campaign_id: string | null; meta_adset_id: string | null; meta_ad_id: string | null; utm_content: string | null; n: number };
+
+// Options for the dashboard selects. Ignores `seg` on purpose: the list must
+// not shrink to the chosen value.
+export async function segmentOptions(db: Db, project: ProjectConfig, filter: DashFilter): Promise<SegmentOption[]> {
+  return db.query<SegmentOption>(
+    `select meta_campaign_id, meta_adset_id, meta_ad_id, utm_content, count(*)::int as n
+     from sessions where project_id = $1 and not is_bot and ${sinceSql(2, 3)}
+     group by 1, 2, 3, 4 order by n desc limit 100`,
+    [project.slug, filter.days, project.adAccountTimezone]
   );
 }
 
@@ -1331,19 +1466,29 @@ import { funnelHandler, sessionsHandler, sessionHandler } from './handlers';
 import { FakeDb } from '@/test/fakeDb';
 
 describe('dash handlers', () => {
-  it('funnel: 404 para projeto desconhecido; 200 com steps e capiFailed', async () => {
+  it('funnel: 404 para projeto desconhecido; 200 com steps, capiFailed, timezone e segments', async () => {
     expect((await funnelHandler(new FakeDb(), 'nope', new URL('http://h/api/dash/nope/funnel'))).status).toBe(404);
-    const db = new FakeDb().willReturn([{ fs: 50, n: 1 }], [{ n: 0 }]);
+    const db = new FakeDb().willReturn([{ fs: 50, n: 1 }], [{ n: 0 }], []);
     const res = await funnelHandler(db, 'chia', new URL('http://h/api/dash/chia/funnel?days=7'));
     const body = await res.json();
     expect(res.status).toBe(200);
     expect(body.steps.at(-1)).toMatchObject({ key: 'checkout_click', count: 1 });
     expect(body.capiFailed24h).toBe(0);
-    expect(db.calls[0].params[1]).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(body.timezone).toBe('America/Mexico_City');
+    expect(body.capiPaused).toBe(false);
+    expect(db.calls[0].params).toEqual(['chia', 7, 'America/Mexico_City']);
   });
-  it('sessions: exige step numérico', async () => {
+  it('funnel: repassa segmento e toggle de bots da query string', async () => {
+    const db = new FakeDb().willReturn([], [{ n: 0 }], []);
+    await funnelHandler(db, 'chia', new URL('http://h/api/dash/chia/funnel?days=7&ad_id=3&bots=1'));
+    expect(db.calls[0].params).toEqual(['chia', 7, 'America/Mexico_City', '3']);
+    expect(db.calls[0].text).not.toMatch(/not is_bot/i);
+  });
+  it('sessions: exige step numérico (ausente, vazio ou não numérico → 400)', async () => {
+    expect((await sessionsHandler(new FakeDb(), 'chia', new URL('http://h/x'))).status).toBe(400);
+    expect((await sessionsHandler(new FakeDb(), 'chia', new URL('http://h/x?step='))).status).toBe(400);
     expect((await sessionsHandler(new FakeDb(), 'chia', new URL('http://h/x?step=abc'))).status).toBe(400);
-    expect((await sessionsHandler(new FakeDb(), 'chia', new URL('http://h/x?step=40'))).status).toBe(200);
+    expect((await sessionsHandler(new FakeDb(), 'chia', new URL('http://h/x?step=31'))).status).toBe(200);
   });
   it('session: 404 quando não existe', async () => {
     const db = new FakeDb().willReturn([], []);
@@ -1359,26 +1504,48 @@ describe('dash handlers', () => {
 ```ts
 // src/lib/dash/handlers.ts
 import type { Db } from '@/lib/db';
-import { getProject } from '@/config/projects';
-import { capiFailed24h, funnelByPerson, sessionTimeline, sessionsAtStep } from './queries';
+import { getProject, type ProjectConfig } from '@/config/projects';
+import { capiFailed24h, funnelByPerson, segmentOptions, sessionTimeline, sessionsAtStep, type DashFilter, type Segment } from './queries';
 
 const json = (d: unknown, status = 200) => Response.json(d, { status });
+const SEG_KEYS = ['ad_id', 'adset_id', 'campaign_id', 'utm_content'] as const;
+
+export function readFilter(url: URL): DashFilter {
+  const days = Math.min(90, Math.max(1, Number(url.searchParams.get('days') ?? 7) || 7));
+  const seg: Segment = {};
+  for (const k of SEG_KEYS) {
+    const v = url.searchParams.get(k);
+    if (v) seg[k] = v;
+  }
+  return { days, seg, includeBots: url.searchParams.get('bots') === '1' };
+}
+
+export function capiPaused(project: ProjectConfig, env: Record<string, string | undefined> = process.env): boolean {
+  return env[`CAPI_PAUSED_${project.slug.toUpperCase()}`] === '1';
+}
 
 export async function funnelHandler(db: Db, slug: string, url: URL): Promise<Response> {
   const project = getProject(slug);
   if (!project) return json({ error: 'unknown_project' }, 404);
-  const days = Math.min(90, Math.max(1, Number(url.searchParams.get('days') ?? 7)));
-  const since = new Date(Date.now() - days * 86400000).toISOString();
-  const [steps, capiFailed] = [await funnelByPerson(db, project, since), await capiFailed24h(db, project)];
-  return json({ project: project.slug, days, steps, capiFailed24h: capiFailed, generatedAt: new Date().toISOString() });
+  const filter = readFilter(url);
+  const steps = await funnelByPerson(db, project, filter);
+  const capiFailed = await capiFailed24h(db, project);
+  const segments = await segmentOptions(db, project, filter);
+  return json({
+    project: project.slug, days: filter.days, timezone: project.adAccountTimezone,
+    segment: filter.seg, includeBots: filter.includeBots,
+    steps, segments, capiFailed24h: capiFailed, capiPaused: capiPaused(project),
+    generatedAt: new Date().toISOString(),
+  });
 }
 
 export async function sessionsHandler(db: Db, slug: string, url: URL): Promise<Response> {
   const project = getProject(slug);
   if (!project) return json({ error: 'unknown_project' }, 404);
-  const step = Number(url.searchParams.get('step'));
+  const raw = url.searchParams.get('step');
+  const step = raw ? Number(raw) : NaN; // null and '' → NaN → 400; '0' stays valid
   if (!Number.isInteger(step)) return json({ error: 'step_required' }, 400);
-  return json({ step, sessions: await sessionsAtStep(db, project, step, 100) });
+  return json({ step, sessions: await sessionsAtStep(db, project, step, readFilter(url), 100) });
 }
 
 export async function sessionHandler(db: Db, sessionId: string): Promise<Response> {
@@ -1388,9 +1555,35 @@ export async function sessionHandler(db: Db, sessionId: string): Promise<Respons
 }
 ```
 
-Rotas (cada uma 6 linhas): `funnel/route.ts` → `export async function GET(req, { params }) { const { project } = await params; return funnelHandler(getDb(), project, new URL(req.url)); }`; `sessions/route.ts` idem com `sessionsHandler`; `session/[id]/route.ts` → `sessionHandler(getDb(), id)`. Todas com `export const runtime = 'nodejs'` e `export const dynamic = 'force-dynamic'`.
+Rotas (tipadas — sem elas o `next build` falha com implicit any):
 
-- [ ] **Step 4: Rodar** → PASS. **Step 5: Commit** `feat(dash): API routes for funnel, step sessions and session timeline`.
+```ts
+// src/app/api/dash/[project]/funnel/route.ts
+import { getDb } from '@/lib/db';
+import { funnelHandler } from '@/lib/dash/handlers';
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export async function GET(req: Request, { params }: { params: Promise<{ project: string }> }) {
+  const { project } = await params;
+  return funnelHandler(getDb(), project, new URL(req.url));
+}
+```
+
+`src/app/api/dash/[project]/sessions/route.ts`: idêntico, trocando `funnelHandler` por `sessionsHandler`.
+
+```ts
+// src/app/api/dash/[project]/session/[id]/route.ts
+import { getDb } from '@/lib/db';
+import { sessionHandler } from '@/lib/dash/handlers';
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export async function GET(_req: Request, { params }: { params: Promise<{ project: string; id: string }> }) {
+  const { id } = await params;
+  return sessionHandler(getDb(), id);
+}
+```
+
+- [ ] **Step 4: Rodar** → PASS; `npx tsc --noEmit` limpo (as rotas não são cobertas pelo vitest). **Step 5: Commit** `feat(dash): API routes for funnel, step sessions and session timeline`.
 
 ---
 
@@ -1405,30 +1598,36 @@ Rotas (cada uma 6 linhas): `funnel/route.ts` → `export async function GET(req,
 // src/app/dashboard/_components/FunnelView.test.tsx
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FunnelView } from './FunnelView';
 
 const funnel = {
-  project: 'chia', days: 7, capiFailed24h: 2, generatedAt: '2026-08-26T12:00:00Z',
+  project: 'chia', days: 7, timezone: 'America/Mexico_City', capiFailed24h: 2, capiPaused: false, generatedAt: '2026-08-26T12:00:00Z',
   steps: [
     { key: 'landing_view', order: 1, label: 'Landing', count: 10, pctOverall: 100, pctRelative: 100 },
-    { key: 'quiz_complete', order: 40, label: 'Lead (nombre)', count: 4, pctOverall: 40, pctRelative: 40 },
+    { key: 'quiz_complete', order: 31, label: 'Lead (nombre)', count: 4, pctOverall: 40, pctRelative: 40 },
   ],
+  segments: [{ meta_campaign_id: 'c1', meta_adset_id: 's1', meta_ad_id: '3', utm_content: 'ad1', n: 5 }],
 };
+
+const fetchMock = vi.fn(async (url: string) => {
+  if (String(url).includes('/funnel')) return new Response(JSON.stringify(funnel));
+  return new Response(JSON.stringify({ step: 31, sessions: [{ session_id: 'abc', anon_id: 'p1', created_at: '2026-08-26T10:00:00Z', last_seen_at: '2026-08-26T10:05:00Z', furthest_step: 31, furthest_event: 'quiz_complete', utm_source: 'ig', utm_content: 'ad1', meta_ad_id: '3', purchase_status: null }] }));
+});
 
 describe('FunnelView', () => {
   beforeEach(() => {
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-      if (String(url).includes('/funnel')) return new Response(JSON.stringify(funnel));
-      return new Response(JSON.stringify({ step: 40, sessions: [{ session_id: 'abc', anon_id: 'p1', created_at: '2026-08-26T10:00:00Z', last_seen_at: '2026-08-26T10:05:00Z', furthest_step: 40, furthest_event: 'quiz_complete', utm_source: 'ig', utm_content: 'ad1', meta_ad_id: '3', purchase_status: null }] }));
-    }));
+    fetchMock.mockClear();
+    vi.stubGlobal('fetch', fetchMock);
   });
 
-  it('mostra os steps com contagem e o card de CAPI failed', async () => {
+  it('mostra os steps com contagem, o fuso da conta e o card de CAPI failed', async () => {
     render(<FunnelView project="chia" pollMs={0} />);
-    expect(await screen.findByText('Lead (nombre)')).toBeInTheDocument();
-    expect(screen.getByText('4')).toBeInTheDocument();
+    // "4" appears in the "Leads" card AND in the table cell → scope to the row
+    const row = (await screen.findByText('Lead (nombre)')).closest('tr')!;
+    expect(within(row).getByText('4')).toBeInTheDocument();
+    expect(screen.getByText('(America/Mexico_City)')).toBeInTheDocument();
     expect(screen.getByText(/CAPI failed \(24h\)/)).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
   });
@@ -1439,8 +1638,19 @@ describe('FunnelView', () => {
     await waitFor(() => expect(screen.getByText('ad1')).toBeInTheDocument());
     expect(screen.getByRole('link', { name: /abc/ })).toHaveAttribute('href', '/dashboard/chia/sessions/abc');
   });
+
+  it('escolher um anúncio ou marcar bots refaz o fetch do funil com o filtro', async () => {
+    render(<FunnelView project="chia" pollMs={0} />);
+    await screen.findByText('Lead (nombre)');
+    await userEvent.selectOptions(screen.getByLabelText('Anúncio'), '3');
+    await waitFor(() => expect(fetchMock.mock.calls.some(([u]) => String(u).includes('/funnel?') && String(u).includes('ad_id=3'))).toBe(true));
+    await userEvent.click(screen.getByLabelText('Incluir bots'));
+    await waitFor(() => expect(fetchMock.mock.calls.some(([u]) => String(u).includes('bots=1'))).toBe(true));
+  });
 });
 ```
+
+Nota: o gráfico do recharts **não** renderiza em jsdom (container 0×0 + stub de `ResizeObserver` no `vitest.setup.ts`) — não coloque width/height fixos no `ResponsiveContainer` para "fazer aparecer"; os labels do chart duplicariam os textos da tabela e quebrariam os `getByText`.
 
 - [ ] **Step 2: Rodar para ver falhar.**
 
@@ -1454,47 +1664,77 @@ import { useEffect, useState } from 'react';
 import { FunnelChart, Funnel, LabelList, Tooltip, ResponsiveContainer } from 'recharts';
 
 type Step = { key: string; order: number; label: string; count: number; pctOverall: number; pctRelative: number };
-type FunnelData = { project: string; days: number; steps: Step[]; capiFailed24h: number; generatedAt: string };
+type SegmentOption = { meta_campaign_id: string | null; meta_adset_id: string | null; meta_ad_id: string | null; utm_content: string | null; n: number };
+type FunnelData = { project: string; days: number; timezone: string; steps: Step[]; segments: SegmentOption[]; capiFailed24h: number; capiPaused: boolean; generatedAt: string };
 type Session = { session_id: string; anon_id: string; created_at: string; last_seen_at: string; furthest_step: number; furthest_event: string | null; utm_source: string | null; utm_content: string | null; meta_ad_id: string | null; purchase_status: string | null };
+type Seg = { ad_id?: string; utm_content?: string };
 
 export function FunnelView({ project, pollMs = 10000 }: { project: string; pollMs?: number }) {
   const [data, setData] = useState<FunnelData | null>(null);
   const [days, setDays] = useState(7);
+  const [bots, setBots] = useState(false);
+  const [seg, setSeg] = useState<Seg>({});
   const [selected, setSelected] = useState<Step | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
+
+  // Same query string for /funnel and /sessions so the funnel and the drill-down always agree.
+  const query = new URLSearchParams({ days: String(days), bots: bots ? '1' : '0', ...seg }).toString();
+  const setSegKey = (k: keyof Seg, v: string) =>
+    setSeg((s) => {
+      const next = { ...s };
+      if (v) next[k] = v;
+      else delete next[k];
+      return next;
+    });
 
   useEffect(() => {
     let alive = true;
     const load = async () => {
-      const res = await fetch(`/api/dash/${project}/funnel?days=${days}`, { cache: 'no-store' });
+      const res = await fetch(`/api/dash/${project}/funnel?${query}`, { cache: 'no-store' });
       if (res.ok && alive) setData(await res.json());
     };
     load();
     if (!pollMs) return () => { alive = false; };
     const id = setInterval(load, pollMs);
     return () => { alive = false; clearInterval(id); };
-  }, [project, days, pollMs]);
+  }, [project, query, pollMs]);
 
   useEffect(() => {
     if (!selected) return;
-    fetch(`/api/dash/${project}/sessions?step=${selected.order}`, { cache: 'no-store' })
+    fetch(`/api/dash/${project}/sessions?step=${selected.order}&${query}`, { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : { sessions: [] }))
       .then((d) => setSessions(d.sessions ?? []));
-  }, [project, selected]);
+  }, [project, selected, query]);
 
   if (!data) return <p className="p-6 text-neutral-500">Cargando…</p>;
+
+  const distinct = (k: 'meta_ad_id' | 'utm_content') =>
+    Array.from(new Set((data.segments ?? []).map((s) => s[k]).filter((v): v is string => !!v)));
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Funil · {data.project}</h1>
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex flex-wrap items-center gap-3 text-sm">
           <label>
             Período{' '}
             <select value={days} onChange={(e) => setDays(Number(e.target.value))} className="rounded border px-2 py-1">
-              {[1, 7, 30, 90].map((d) => <option key={d} value={d}>{d} dias</option>)}
-            </select>
+              {[1, 7, 30, 90].map((d) => <option key={d} value={d}>{d === 1 ? 'hoje' : `${d} dias`}</option>)}
+            </select>{' '}
+            <span className="text-neutral-500">({data.timezone})</span>
           </label>
+          <select aria-label="Anúncio" value={seg.ad_id ?? ''} onChange={(e) => setSegKey('ad_id', e.target.value)} className="rounded border px-2 py-1">
+            <option value="">Todos os anúncios</option>
+            {distinct('meta_ad_id').map((v) => <option key={v} value={v}>{v}</option>)}
+          </select>
+          <select aria-label="utm_content" value={seg.utm_content ?? ''} onChange={(e) => setSegKey('utm_content', e.target.value)} className="rounded border px-2 py-1">
+            <option value="">Todo utm_content</option>
+            {distinct('utm_content').map((v) => <option key={v} value={v}>{v}</option>)}
+          </select>
+          <label className="flex items-center gap-1">
+            <input type="checkbox" aria-label="Incluir bots" checked={bots} onChange={(e) => setBots(e.target.checked)} /> Incluir bots
+          </label>
+          {data.capiPaused ? <span className="rounded bg-red-100 px-2 py-1 text-red-800">CAPI pausado (§11.4)</span> : null}
           <span className="text-neutral-500">atualizado {new Date(data.generatedAt).toLocaleTimeString()}</span>
         </div>
       </header>
@@ -1653,18 +1893,63 @@ export default async function SessionPage({ params }: { params: Promise<{ projec
 ### Task 12: quiz-app → hub (rewrite, provider, remover CAPI local)
 
 **Files (quiz-app, branch `feat/tracking-fase-1-hub`):**
-- Modify: `next.config.js`, `src/lib/tracking/provider.ts`, `src/lib/tracking/provider.test.ts`, `src/lib/tracking/eventMap.ts`, `src/lib/tracking/eventMap.test.ts`, `README.md`, `.env.local.example`
+- Modify: `next.config.js`, `src/lib/tracking/provider.ts`, `src/lib/tracking/provider.test.ts`, `src/lib/tracking/eventMap.ts`, `src/lib/tracking/eventMap.test.ts`, `src/components/tracking/TrackingProvider.tsx`, `README.md`, `.env.local.example`
 - Delete: `src/app/api/e/capi/route.ts`, `src/app/api/e/capi/route.test.ts`, `src/lib/tracking/server/capi.ts`, `src/lib/tracking/server/capi.test.ts`
 
 **Interfaces:**
 - Produces: `IngestPayload` (renomeado de `CapiClientPayload`, com `project`, `attribution`), `HEALTH_CONTEXT_EVENTS`, transporte default `POST /api/e/ingest`.
 
 - [ ] **Step 1: Testes** — em `provider.test.ts`:
-  - trocar as expectativas de `CapiClientPayload` para incluir `project: 'chia'` e `attribution` (objeto de `getAttribution()` filtrado por chaves, vazio no teste);
-  - **novo:** "eventos não mapeados também vão ao transport" (`quiz_answer` → transport chamado com `meta_event_name: null`, `metadata: { step: 'peso' }`);
-  - **novo:** "eventos de contexto de saúde não saem sem consentimento" (`quiz_step_view` sem `saveConsent()` → transport **não** chamado; após `saveConsent()` → chamado);
-  - manter os testes de dedup/fbq.
+  - trocar `CapiTransport` → `IngestTransport` no import e no cast do teste de throw síncrono; importar `saveConsent` de `./consent`;
+  - trocar as expectativas de `CapiClientPayload` para incluir `project: 'chia'` e `attribution: {}` (o `getAttribution()` devolve só chaves com valor; vazio no teste);
+  - **remover** os testes `'eventos no mapeados (imc_view, quiz_answer…) no tocan fbq ni el transport'` e `'eventos no mapeados no entran en la lista de enviados'` — contradizem o contrato novo (agora todo evento vai ao hub);
+  - **adicionar** os quatro testes abaixo; manter os demais testes de dedup/fbq.
   Em `eventMap.test.ts`: `HEALTH_CONTEXT_EVENTS` = `['quiz_step_view','quiz_answer','imc_view','projection_view']`.
+
+```ts
+  it('eventos não mapeados não tocam fbq, mas vão ao transport com meta_event_name null', () => {
+    const fbq = vi.fn();
+    window.fbq = fbq;
+    const transport = vi.fn().mockResolvedValue(undefined);
+    createTrackingProvider({ transport, now: fixedNow })('vsl_cta_click', { resumeKey: 'vsl1' });
+    expect(fbq).not.toHaveBeenCalled();
+    expect(transport).toHaveBeenCalledWith(expect.objectContaining({
+      project: 'chia', internal_name: 'vsl_cta_click', meta_event_name: null, metadata: { resumeKey: 'vsl1' },
+    }));
+  });
+
+  it('eventos de contexto de saúde não saem sem consentimento (e não entram no dedup), e saem depois dele', () => {
+    const transport = vi.fn().mockResolvedValue(undefined);
+    const provider = createTrackingProvider({ transport, now: fixedNow });
+    provider('quiz_step_view', { step: 'peso', index: 8 });
+    expect(transport).not.toHaveBeenCalled();
+    expect(window.sessionStorage.getItem('gel-chia-quiz-mx:sent_event_ids')).toBeNull();
+    saveConsent(fixedNow());
+    provider('quiz_step_view', { step: 'peso', index: 8 });
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it('todo evento enviado entra na lista de dedup (também os que não mapeiam para Meta)', () => {
+    saveConsent(fixedNow());
+    const transport = vi.fn().mockResolvedValue(undefined);
+    const provider = createTrackingProvider({ transport, now: fixedNow });
+    provider('quiz_answer', { step: 'peso', value: 85 });
+    provider('quiz_answer', { step: 'peso', value: 85 });
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(transport).toHaveBeenCalledWith(expect.objectContaining({ meta_event_name: null, metadata: { step: 'peso' } }));
+    expect(JSON.parse(window.sessionStorage.getItem('gel-chia-quiz-mx:sent_event_ids') ?? '[]')).toHaveLength(1);
+  });
+
+  it('durante prerendering o evento é adiado até prerenderingchange, não descartado', () => {
+    Object.defineProperty(document, 'prerendering', { value: true, configurable: true });
+    const transport = vi.fn().mockResolvedValue(undefined);
+    createTrackingProvider({ transport, now: fixedNow })('quiz_complete');
+    expect(transport).not.toHaveBeenCalled();
+    Object.defineProperty(document, 'prerendering', { value: false, configurable: true });
+    document.dispatchEvent(new Event('prerenderingchange'));
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+```
 
 - [ ] **Step 2: Rodar para ver falhar.**
 
@@ -1686,7 +1971,75 @@ export const defaultTransport: IngestTransport = async (payload) => {
   await fetch('/api/e/ingest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), keepalive: true });
 };
 ```
-No closure: (1) calcular `meta`; (2) guard de dedup para **todo** evento (agora todos são enviados); (3) se `HEALTH_CONTEXT_EVENTS.includes(event) && !getConsent()` → `return` sem enviar; (4) `fbqTrack` só se `meta`; (5) montar `IngestPayload` com `attribution: getAttribution()` (só chaves com valor) e enviar sempre. Manter `try { transport(body).catch(noop) } catch {}`.
+`createTrackingProvider` completo (imports: acrescentar `getAttribution` a `./attribution`, `HEALTH_CONTEXT_EVENTS` e `pickMetadata` a `./eventMap`, `getConsent` a `./consent`):
+
+```ts
+export function createTrackingProvider(
+  opts: { transport?: IngestTransport; now?: () => Date } = {}
+): AnalyticsProvider {
+  const transport = opts.transport ?? defaultTransport;
+  const now = opts.now ?? (() => new Date());
+  const sent = loadSent();
+
+  const provider: AnalyticsProvider = (event: AnalyticsEvent, payload?: AnalyticsPayload) => {
+    // (0) prerender (spec §6): DEFER until activation, never drop — otherwise landing_view/consent_view vanish
+    if (typeof document !== 'undefined' && (document as Document & { prerendering?: boolean }).prerendering) {
+      document.addEventListener('prerenderingchange', () => provider(event, payload), { once: true });
+      return;
+    }
+    // (1) consent gate BEFORE touching `sent`: event_id is deterministic and markSent persists it in
+    //     sessionStorage; marking here would leave the event dead for the session after consent (spec §11.1)
+    if (HEALTH_CONTEXT_EVENTS.includes(event) && !getConsent()) return;
+
+    const anonId = getAnonId();
+    const sessionId = getSessionId();
+    const scopeId = EVENT_SCOPE[event] === 'anon' ? anonId : sessionId;
+    const eventId = eventIdFor(scopeId, event, stepRefFor(event, payload));
+    const meta = EVENT_MAP[event];
+
+    // (2) dedup for EVERY event (all of them go to the hub now)
+    if (sent.has(eventId)) return;
+    markSent(sent, eventId);
+
+    // (3) Pixel only for mapped events
+    const customData = meta ? buildCustomData(meta, payload) : undefined;
+    if (meta) fbqTrack(meta, customData ?? {}, eventId);
+
+    // (4) hub payload; getAttribution() already returns only keys with a value
+    const body: IngestPayload = {
+      project: PROJECT_SLUG,
+      event_id: eventId,
+      internal_name: event,
+      meta_event_name: meta ?? null,
+      occurred_at: now().toISOString(),
+      event_source_url: window.location.href,
+      anon_id: anonId,
+      session_id: sessionId,
+      fbc: getFbc(),
+      fbp: getFbp(),
+      metadata: pickMetadata(event, payload),
+      consent_version: getConsent()?.policy_version ?? null,
+      attribution: getAttribution() as Record<string, string>,
+    };
+    if (customData) body.custom_data = customData;
+    try {
+      transport(body).catch(() => {
+        // pixel already fired; the server mirror is best-effort (retry lives in the hub)
+      });
+    } catch {
+      // transport threw synchronously; same reasoning
+    }
+  };
+  return provider;
+}
+```
+
+`src/components/tracking/TrackingProvider.tsx`: trocar o import e o tipo da prop:
+
+```tsx
+import { createTrackingProvider, type IngestTransport } from '@/lib/tracking/provider';
+type TrackingProviderProps = { transport?: IngestTransport };
+```
 
 `next.config.js`:
 ```js
@@ -1714,7 +2067,7 @@ Remover `src/app/api/e/capi/*` e `src/lib/tracking/server/*`; remover do README 
 - [ ] **Step 1: Preview do quiz-app** (com `META_TEST_EVENT_CODE_CHIA` no hub *Preview*? — não: o preview do quiz reescreve para o hub de **produção**; para QA com Test Events, definir temporariamente `META_TEST_EVENT_CODE_CHIA` em Production do hub, rodar, remover). Abrir o preview com `?utm_source=qa&ad_id=qa1&fbclid=QA123`, consentir, responder até o nome, ir à oferta, clicar no CTA.
 - [ ] **Step 2: Dashboard** — `https://qx-hub.vercel.app/dashboard/chia` (Basic Auth): a pessoa aparece no funil, clicando em "Lead (nombre)" aparece a sessão, e a timeline mostra `landing_view → consent_accept → quiz_start → quiz_step_view:* → quiz_complete (→ Lead, capi sent) → ... → checkout_click (→ InitiateCheckout, capi sent)`, com `metadata` só de `step`/`resumeKey`/`priceMxn`.
 - [ ] **Step 3: Test Events** — `Lead` e `InitiateCheckout` continuam uma linha só (navegador + servidor deduplicados), agora com o servidor sendo o hub.
-- [ ] **Step 4: IP** — na sessão, `client_ip` preenchido (SQL Editor: `select client_ip, client_user_agent from sessions order by created_at desc limit 1`). Se vier `null`, o rewrite do Vercel não repassou `x-forwarded-for`: adicionar em `quiz-app/src/middleware.ts` um `NextResponse.rewrite` para `/api/e/*` que copie `request.ip`/`x-forwarded-for` para o header `x-client-ip`, e ler esse header no hub (`firstForwardedIp(req.headers.get('x-client-ip') ?? req.headers.get('x-forwarded-for'))`).
+- [ ] **Step 4: IP** — na sessão, `client_ip` preenchido (SQL Editor: `select client_ip, client_user_agent from sessions order by created_at desc limit 1`). Se vier `null`, o rewrite do Vercel não repassou `x-forwarded-for` (ou repassou o IP do próprio proxy): trocar o rewrite do `next.config.js` por um `quiz-app/src/middleware.ts` com matcher `/api/e/:path*` que faça `NextResponse.rewrite(new URL(path, HUB_URL), { request: { headers } })`, onde `headers` é uma cópia dos headers da request com `x-client-ip` = primeiro IP de `x-forwarded-for` (Next 15 não tem mais `request.ip`; usar só os headers). No hub, ler `firstForwardedIp(req.headers.get('x-client-ip') ?? req.headers.get('x-forwarded-for'))`.
 - [ ] **Step 5: Bots** — `curl -A facebookexternalhit ... /api/e/ingest` pelo domínio do quiz → a sessão aparece com `is_bot=true` e **não** aparece no funil.
 - [ ] **Step 6: Remover** `META_TEST_EVENT_CODE_CHIA` de Production do hub; redeploy. Marcar Fase 1 ✅ no roadmap; nota diária.
 
@@ -1722,7 +2075,8 @@ Remover `src/app/api/e/capi/*` e `src/lib/tracking/server/*`; remover do README 
 
 ## Self-review (feito ao escrever o plano)
 
-- **Cobertura da spec §13 Fase 1:** hub em domínio neutro (T0/T11) · migração completa com todas as tabelas + RLS (T2) · `projects.ts` (T1) · `/api/ingest` com origin/shape/allowlist/strip/bot/ON CONFLICT/step_order/upsert/CAPI sem retry (T3-T6) · rewrite + `/api/e/ingest` + remoção do CAPI local (T12) · `consents` persistido (T4/T6) · dashboard com Basic Auth, funil por pessoa, drill-down 2 níveis, card CAPI failed (T7-T10) · polling (T10). **Fora desta fase, de propósito:** circuit breaker de volume (spec §6) — fica para quando houver volume; card "Meta vs CAPI" e receita (dependem da Fase 2/4); `video_watch` (tabela criada, escrita na Fase 3).
+- **Cobertura da spec §13 Fase 1:** hub em domínio neutro (T0/T11) · migração completa com todas as tabelas + RLS (T2) · `projects.ts` (T1) · `/api/ingest` com origin/shape/allowlist/strip/bot/ON CONFLICT/step_order/upsert/CAPI sem retry (T3-T6) · rewrite + `/api/e/ingest` + remoção do CAPI local (T12) · `consents` persistido (T4/T6) · dashboard com Basic Auth, funil por pessoa, drill-down 2 níveis, card CAPI failed (T7-T10) · polling (T10). **Fora desta fase, de propósito (rulings nas Global Constraints):** circuit breaker de volume (spec §6) — gate manual `CAPI_PAUSED_<SLUG>` cobre a pausa; job de retenção 90 dias (spec §9) — Fase 2, com prazo; guarda de `pageshow persisted` (spec §6) — no-op com efeitos React + `event_id` determinístico (a guarda de `document.prerendering` está implementada em T12, adiando o evento); card "Meta vs CAPI" e receita (Fase 2/4); `video_watch` (tabela criada, escrita na Fase 3). **Cobertura §10 acrescentada após a revisão:** segmentação por `ad_id/adset_id/campaign_id/utm_content`, toggle de bots e janela em `ad_account_timezone` (T8-T10).
 - **Placeholders:** nenhum; cada passo tem código ou comando.
-- **Consistência de nomes:** `Db.query(text, params)` (T2) usado por T4/T8/T9/T10; `IngestPayloadSchema`/`IngestPayload` (T3) em T5/T6; `insertEvent/upsertSession/insertConsent/markCapi` (T4) em T5/T6; `dispatchCapi(db, project, payload, ctx, deps)` (T5) em T6; `funnelByPerson/sessionsAtStep/sessionTimeline/capiFailed24h` (T8) em T9/T10; `FUNNEL_STEPS_CHIA` keys `quiz_step_view:<id>` (T1) resolvidas por `resolveStep` (T3) e usadas no teste de T9 (`checkout_click`, order 50).
+- **Consistência de nomes:** `Db.query(text, params)` (T2) usado por T4/T8/T9/T10; `IngestPayloadSchema`/`IngestPayload` (T3) em T5/T6; `insertEvent/upsertSession/insertConsent/markCapi` (T4) em T5/T6; `pickCustomData` exportado de `build.ts` (T5) usado por `dispatch.ts`; `dispatchCapi(db, project, payload, ctx, deps)` (T5) em T6; `funnelByPerson(db, project, filter)/sessionsAtStep(db, project, order, filter, limit)/segmentOptions/sessionTimeline/capiFailed24h` (T8) e `readFilter/capiPaused` (T9) em T9/T10; `FUNNEL_STEPS_CHIA` keys `quiz_step_view:<id>` (T1) resolvidas por `resolveStep` (T3): `nombre` 30, `quiz_complete` 31, `loader2` 32, `checkout_click` 50 — usados nos testes de T3/T8/T9/T10.
+- **Revisão adversarial (2026-08-26):** 20 findings confirmados e integrados nas tasks (ordem do Lead no funil; tipos `MetaEventName` derivados do allowlist; `pickCustomData` exportado; gate `CAPI_PAUSED`; filtro unificado com fuso/segmento/bots; handlers/rotas tipados e `step` ausente → 400; stub de `ResizeObserver`; testes do `FunnelView` escopados por linha; provider com consentimento antes do dedup e prerender adiado; validação de IP antes do `::inet`).
 - **Risco conhecido:** propagação do IP pelo rewrite do Vercel — verificado em T13 Step 4 com fallback definido.

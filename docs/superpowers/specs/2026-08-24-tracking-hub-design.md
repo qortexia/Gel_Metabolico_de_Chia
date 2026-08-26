@@ -406,7 +406,7 @@ Hashes via CAPI Brasil→EUA: desde 23/08/2025 exige Cláusulas-Padrão Contratu
 Schema §9 (com `capi_status`, `project_id`, `video_watch`, `webhook_events`, `orders`, `consents` já na migração inicial), `POST /api/ingest` (§6), rewrite first-party no quiz-app, dashboard básico + drill-down 2 níveis + cards operacionais, Basic Auth, `consents` persistido. O `/api/e/capi` da Fase 0a vira chamada ao hub. Cláusula de escape: se a Fase 1 escorregar além de ~3 dias, criar o Supabase com `sessions` mínima e insert fire-and-forget já na Fase 0.
 
 ### Fase 2 — webhook Kiwify + Purchase real
-Handler §7.3, matching §7.4, ciclo de vida §7.5, cron de retry, backfill das vendas do período Fase 0-1 via Sales API (casando por `s1`). **Começa com a compra de teste (§14).** Troca de bastão do Purchase (§7.2).
+Handler §7.3, matching §7.4, ciclo de vida §7.5, cron de retry, cron de expurgo de `client_ip`/`user_agent` com > 90 dias (§9 — prazo duro: antes de 90 dias após o deploy da Fase 1, porque a `/privacy` já promete), backfill das vendas do período Fase 0-1 via Sales API (casando por `s1`). **Começa com a compra de teste (§14).** Troca de bastão do Purchase (§7.2).
 
 ### Fase 3 — watch-time
 Hook §8, `video_watch`, milestones → ViewContent, curva de abandono por VSL no dashboard, `vsl_autoplay_blocked`.
