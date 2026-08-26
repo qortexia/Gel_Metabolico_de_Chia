@@ -5,3 +5,11 @@ out
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
+
+.superpowers
+.env
+.env.production
+.env.development
+
+.vercel
+.env*

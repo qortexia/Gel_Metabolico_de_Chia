@@ -30,6 +30,13 @@ export const useQuizStore = create<QuizState>()(
     }),
     {
       name: 'gel-chia-quiz-mx',
+      version: 1,
+      // v0 users (before the express-consent gate existed) could have started: true
+      // persisted; send them through the gate once so consent is actually recorded.
+      migrate: (persisted, version) => {
+        const state = (persisted ?? {}) as Partial<QuizState>;
+        return version < 1 ? { ...state, started: false } : state;
+      },
       // Browsers with quiz progress saved before a QuizAnswers shape change
       // (e.g. a new field, or 'area' going from string|null to string[]) must
       // not crash on rehydration. The default persist merge replaces the whole

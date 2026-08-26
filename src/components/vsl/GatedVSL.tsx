@@ -53,6 +53,8 @@ export function GatedVSL({
   // legitimate case where it's fast-forwarded to match a resumed position.
   const maxWatchedRef = useRef(0);
   const durationRef = useRef<number | null>(null);
+  // onPlay fires again after every pause/resume; only the first real play is a signal.
+  const playTrackedRef = useRef(false);
   const [secondsLeft, setSecondsLeft] = useState(revealAtSeconds);
   const [revealed, setRevealed] = useState(false);
   const [showResumePrompt, setShowResumePrompt] = useState(false);
@@ -69,7 +71,7 @@ export function GatedVSL({
       savedPositionRef.current = saved;
       setShowResumePrompt(true);
     }
-    track('vsl_play', { resumeKey });
+    track('vsl_view', { resumeKey });
   }, [resumeKey]);
 
   useEffect(() => {
@@ -126,6 +128,17 @@ export function GatedVSL({
     setRevealed(true);
   };
 
+  const handlePlay = () => {
+    if (playTrackedRef.current) return;
+    playTrackedRef.current = true;
+    track('vsl_play', { resumeKey });
+  };
+
+  const handleError = () => {
+    track('vsl_error', { resumeKey, code: videoRef.current?.error?.code ?? null });
+    setVideoError(true);
+  };
+
   const handleResume = () => {
     const saved = savedPositionRef.current;
     if (saved && videoRef.current) {
@@ -154,6 +167,7 @@ export function GatedVSL({
   // ever having been gated/revealed, so it must not emit `vsl_cta_click` —
   // that event should mean "the real gated CTA was revealed and clicked."
   const handleContinueWithoutVideo = () => {
+    track('vsl_continue_without_video', { resumeKey });
     onCtaClick();
   };
 
@@ -192,7 +206,8 @@ export function GatedVSL({
           onLoadedMetadata={handleLoadedMetadata}
           onSeeking={handleSeeking}
           onEnded={handleEnded}
-          onError={() => setVideoError(true)}
+          onError={handleError}
+          onPlay={handlePlay}
         >
           <track kind="captions" />
         </video>
