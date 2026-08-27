@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createTrackingProvider, buildCustomData, type CapiTransport } from './provider';
+import { createTrackingProvider, buildCustomData, type IngestTransport } from './provider';
 import { getAnonId, getSessionId, eventIdFor } from './ids';
 import { saveConsent } from './consent';
 
@@ -26,7 +26,9 @@ describe('createTrackingProvider', () => {
     const expectedId = eventIdFor(getSessionId(), 'checkout_click', '');
     expect(fbq).toHaveBeenCalledWith('track', 'InitiateCheckout', { value: 199, currency: 'MXN' }, { eventID: expectedId });
     expect(transport).toHaveBeenCalledWith({
+      project: 'chia',
       event_id: expectedId,
+      internal_name: 'checkout_click',
       meta_event_name: 'InitiateCheckout',
       occurred_at: '2026-08-24T12:00:00.000Z',
       event_source_url: window.location.href,
@@ -35,9 +37,9 @@ describe('createTrackingProvider', () => {
       fbc: null,
       fbp: null,
       custom_data: { value: 199, currency: 'MXN' },
-      internal_name: 'checkout_click',
       metadata: { priceMxn: 199 },
       consent_version: null,
+      attribution: {},
     });
   });
 
@@ -84,20 +86,6 @@ describe('createTrackingProvider', () => {
     expect(transport).toHaveBeenCalledTimes(1);
   });
 
-  it('eventos no mapeados (imc_view, quiz_answer…) no tocan fbq ni el transport', () => {
-    const fbq = vi.fn();
-    window.fbq = fbq;
-    const transport = vi.fn().mockResolvedValue(undefined);
-    const provider = createTrackingProvider({ transport, now: fixedNow });
-
-    provider('imc_view');
-    provider('quiz_answer', { step: 'peso', value: 85 });
-    provider('vsl_cta_click', { resumeKey: 'vsl1' });
-
-    expect(fbq).not.toHaveBeenCalled();
-    expect(transport).not.toHaveBeenCalled();
-  });
-
   it('sin fbq cargado igual envía al transport (el servidor cubre al navegador)', () => {
     const transport = vi.fn().mockResolvedValue(undefined);
     createTrackingProvider({ transport, now: fixedNow })('quiz_complete');
@@ -124,18 +112,51 @@ describe('createTrackingProvider', () => {
       throw new Error('sync');
     });
     expect(() =>
-      createTrackingProvider({ transport: transport as unknown as CapiTransport, now: fixedNow })('quiz_complete')
+      createTrackingProvider({ transport: transport as unknown as IngestTransport, now: fixedNow })('quiz_complete')
     ).not.toThrow();
   });
 
-  it('eventos no mapeados no entran en la lista de enviados (no consumen el límite de dedup)', () => {
+  it('eventos não mapeados não tocam fbq, mas vão ao transport com meta_event_name null', () => {
+    const fbq = vi.fn();
+    window.fbq = fbq;
+    const transport = vi.fn().mockResolvedValue(undefined);
+    createTrackingProvider({ transport, now: fixedNow })('vsl_cta_click', { resumeKey: 'vsl1' });
+    expect(fbq).not.toHaveBeenCalled();
+    expect(transport).toHaveBeenCalledWith(expect.objectContaining({
+      project: 'chia', internal_name: 'vsl_cta_click', meta_event_name: null, metadata: { resumeKey: 'vsl1' },
+    }));
+  });
+
+  it('eventos de contexto de saúde não saem sem consentimento (e não entram no dedup), e saem depois dele', () => {
     const transport = vi.fn().mockResolvedValue(undefined);
     const provider = createTrackingProvider({ transport, now: fixedNow });
-    provider('imc_view');
-    provider('quiz_answer', { step: 'peso', value: 85 });
+    provider('quiz_step_view', { step: 'peso', index: 8 });
+    expect(transport).not.toHaveBeenCalled();
     expect(window.sessionStorage.getItem('gel-chia-quiz-mx:sent_event_ids')).toBeNull();
-    provider('quiz_complete');
+    saveConsent(fixedNow());
+    provider('quiz_step_view', { step: 'peso', index: 8 });
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it('todo evento enviado entra na lista de dedup (também os que não mapeiam para Meta)', () => {
+    saveConsent(fixedNow());
+    const transport = vi.fn().mockResolvedValue(undefined);
+    const provider = createTrackingProvider({ transport, now: fixedNow });
+    provider('quiz_answer', { step: 'peso', value: 85 });
+    provider('quiz_answer', { step: 'peso', value: 85 });
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(transport).toHaveBeenCalledWith(expect.objectContaining({ meta_event_name: null, metadata: { step: 'peso' } }));
     expect(JSON.parse(window.sessionStorage.getItem('gel-chia-quiz-mx:sent_event_ids') ?? '[]')).toHaveLength(1);
+  });
+
+  it('durante prerendering o evento é adiado até prerenderingchange, não descartado', () => {
+    Object.defineProperty(document, 'prerendering', { value: true, configurable: true });
+    const transport = vi.fn().mockResolvedValue(undefined);
+    createTrackingProvider({ transport, now: fixedNow })('quiz_complete');
+    expect(transport).not.toHaveBeenCalled();
+    Object.defineProperty(document, 'prerendering', { value: false, configurable: true });
+    document.dispatchEvent(new Event('prerenderingchange'));
+    expect(transport).toHaveBeenCalledTimes(1);
   });
 });
 

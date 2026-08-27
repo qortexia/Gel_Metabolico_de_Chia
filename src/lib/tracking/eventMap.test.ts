@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { EVENT_MAP, META_EVENT_ALLOWLIST, EVENT_SCOPE, stepRefFor, pickMetadata } from './eventMap';
+import { EVENT_MAP, META_EVENT_ALLOWLIST, EVENT_SCOPE, HEALTH_CONTEXT_EVENTS, stepRefFor, pickMetadata } from './eventMap';
 
 describe('eventMap', () => {
   it('solo quiz_complete y checkout_click se traducen a eventos estándar de Meta (Lead / InitiateCheckout)', () => {
@@ -40,5 +40,9 @@ describe('eventMap', () => {
     expect(pickMetadata('quiz_answer', { step: 'peso', value: 85 })).toEqual({ step: 'peso' });
     expect(pickMetadata('checkout_click', { priceMxn: 199, extra: 'x' })).toEqual({ priceMxn: 199 });
     expect(pickMetadata('imc_view', { imc: 33 })).toEqual({});
+  });
+
+  it('HEALTH_CONTEXT_EVENTS lista los eventos que requieren consentimiento antes de salir del navegador', () => {
+    expect(HEALTH_CONTEXT_EVENTS).toEqual(['quiz_step_view', 'quiz_answer', 'imc_view', 'projection_view']);
   });
 });

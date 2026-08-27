@@ -1,13 +1,17 @@
 import type { AnalyticsEvent, AnalyticsPayload, AnalyticsProvider } from '@/lib/analytics';
 import { getAnonId, getSessionId, eventIdFor } from './ids';
-import { EVENT_MAP, EVENT_SCOPE, stepRefFor, pickMetadata, type MetaEventName } from './eventMap';
-import { getFbc, getFbp } from './attribution';
+import { EVENT_MAP, EVENT_SCOPE, HEALTH_CONTEXT_EVENTS, stepRefFor, pickMetadata, type MetaEventName } from './eventMap';
+import { getFbc, getFbp, getAttribution } from './attribution';
 import { getConsent } from './consent';
 import { fbqTrack } from './metaPixel';
 
-export interface CapiClientPayload {
+export const PROJECT_SLUG = 'chia';
+
+export interface IngestPayload {
+  project: string;
   event_id: string;
-  meta_event_name: MetaEventName;
+  internal_name: AnalyticsEvent;
+  meta_event_name: MetaEventName | null;
   occurred_at: string;
   event_source_url: string;
   anon_id: string;
@@ -15,14 +19,12 @@ export interface CapiClientPayload {
   fbc: string | null;
   fbp: string | null;
   custom_data?: Record<string, string | number>;
-  // Fase 1 contract fields: the hub persists these to Supabase but they never
-  // reach the Meta Graph payload (the route ignores them by construction).
-  internal_name: AnalyticsEvent;
   metadata: AnalyticsPayload;
   consent_version: string | null;
+  attribution: Record<string, string>;
 }
 
-export type CapiTransport = (payload: CapiClientPayload) => Promise<void>;
+export type IngestTransport = (payload: IngestPayload) => Promise<void>;
 
 const SENT_KEY = 'gel-chia-quiz-mx:sent_event_ids';
 const SENT_CAP = 500;
@@ -70,8 +72,8 @@ export function buildCustomData(meta: MetaEventName, payload?: AnalyticsPayload)
   return undefined;
 }
 
-export const defaultTransport: CapiTransport = async (payload) => {
-  await fetch('/api/e/capi', {
+export const defaultTransport: IngestTransport = async (payload) => {
+  await fetch('/api/e/ingest', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -80,47 +82,60 @@ export const defaultTransport: CapiTransport = async (payload) => {
 };
 
 export function createTrackingProvider(
-  opts: { transport?: CapiTransport; now?: () => Date } = {}
+  opts: { transport?: IngestTransport; now?: () => Date } = {}
 ): AnalyticsProvider {
   const transport = opts.transport ?? defaultTransport;
   const now = opts.now ?? (() => new Date());
   const sent = loadSent();
 
-  return (event: AnalyticsEvent, payload?: AnalyticsPayload) => {
+  const provider: AnalyticsProvider = (event: AnalyticsEvent, payload?: AnalyticsPayload) => {
+    // (0) prerender (spec §6): DEFER until activation, never drop — otherwise landing_view/consent_view vanish
+    if (typeof document !== 'undefined' && (document as Document & { prerendering?: boolean }).prerendering) {
+      document.addEventListener('prerenderingchange', () => provider(event, payload), { once: true });
+      return;
+    }
+    // (1) consent gate BEFORE touching `sent`: event_id is deterministic and markSent persists it in
+    //     sessionStorage; marking here would leave the event dead for the session after consent (spec §11.1)
+    if (HEALTH_CONTEXT_EVENTS.includes(event) && !getConsent()) return;
+
     const anonId = getAnonId();
     const sessionId = getSessionId();
     const scopeId = EVENT_SCOPE[event] === 'anon' ? anonId : sessionId;
     const eventId = eventIdFor(scopeId, event, stepRefFor(event, payload));
-
     const meta = EVENT_MAP[event];
-    if (!meta) return;
 
+    // (2) dedup for EVERY event (all of them go to the hub now)
     if (sent.has(eventId)) return;
     markSent(sent, eventId);
 
-    const customData = buildCustomData(meta, payload);
-    fbqTrack(meta, customData ?? {}, eventId);
+    // (3) Pixel only for mapped events
+    const customData = meta ? buildCustomData(meta, payload) : undefined;
+    if (meta) fbqTrack(meta, customData ?? {}, eventId);
 
-    const body: CapiClientPayload = {
+    // (4) hub payload; getAttribution() already returns only keys with a value
+    const body: IngestPayload = {
+      project: PROJECT_SLUG,
       event_id: eventId,
-      meta_event_name: meta,
+      internal_name: event,
+      meta_event_name: meta ?? null,
       occurred_at: now().toISOString(),
       event_source_url: window.location.href,
       anon_id: anonId,
       session_id: sessionId,
       fbc: getFbc(),
       fbp: getFbp(),
-      internal_name: event,
       metadata: pickMetadata(event, payload),
       consent_version: getConsent()?.policy_version ?? null,
+      attribution: getAttribution() as Record<string, string>,
     };
     if (customData) body.custom_data = customData;
     try {
       transport(body).catch(() => {
-        // browser pixel already fired; server mirror is best-effort here (retry lives in the hub, Fase 1)
+        // pixel already fired; the server mirror is best-effort (retry lives in the hub)
       });
     } catch {
-      // transport threw synchronously; browser pixel already fired, server mirror is best-effort here
+      // transport threw synchronously; same reasoning
     }
   };
+  return provider;
 }
