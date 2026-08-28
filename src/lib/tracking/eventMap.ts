@@ -51,6 +51,16 @@ export const EVENT_SCOPE: Partial<Record<AnalyticsEvent, 'anon'>> = {
   quiz_complete: 'anon',
 };
 
+// Events that carry health context (weight, BMI, projections) and must never
+// leave the browser before the user has accepted the privacy policy — even
+// though the hub is the only destination (they never map to Meta).
+export const HEALTH_CONTEXT_EVENTS: readonly AnalyticsEvent[] = [
+  'quiz_step_view',
+  'quiz_answer',
+  'imc_view',
+  'projection_view',
+];
+
 export function stepRefFor(event: AnalyticsEvent, payload?: AnalyticsPayload): string {
   void event;
   const ref = payload?.step ?? payload?.resumeKey ?? '';

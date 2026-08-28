@@ -2,10 +2,10 @@
 
 import { useEffect } from 'react';
 import { setAnalyticsProvider } from '@/lib/analytics';
-import { createTrackingProvider, type CapiTransport } from '@/lib/tracking/provider';
+import { createTrackingProvider, type IngestTransport } from '@/lib/tracking/provider';
 import { persistAttribution, ensureFbc } from '@/lib/tracking/attribution';
 
-type TrackingProviderProps = { transport?: CapiTransport };
+type TrackingProviderProps = { transport?: IngestTransport };
 
 export function TrackingProvider({ transport }: TrackingProviderProps) {
   useEffect(() => {
